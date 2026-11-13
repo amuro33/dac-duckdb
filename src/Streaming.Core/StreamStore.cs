@@ -20,6 +20,8 @@ public sealed class StreamStore(NpgsqlDataSource db)
             status text NOT NULL DEFAULT 'publishing',created_at timestamptz NOT NULL DEFAULT now(),
             published_at timestamptz,ready_at timestamptz,error text,result_rows int,result_path text,transform_ms double precision);
         CREATE INDEX IF NOT EXISTS stream_datasets_recent ON stream_datasets(created_at DESC);
+        ALTER TABLE stream_datasets ADD COLUMN IF NOT EXISTS input_dataset_id uuid REFERENCES stream_datasets(id);
+        ALTER TABLE stream_datasets ADD COLUMN IF NOT EXISTS execution jsonb;
         CREATE TABLE IF NOT EXISTS stream_batches(
             consumer_group text NOT NULL,dataset_id uuid NOT NULL REFERENCES stream_datasets(id),source text NOT NULL,
             sequence int NOT NULL,total_batches int NOT NULL,total_rows int NOT NULL,row_count int NOT NULL,
@@ -65,8 +67,8 @@ public sealed class StreamStore(NpgsqlDataSource db)
     }
     public async Task<Dataset?> GetDataset(Guid id)
     {
-        await using var c=await db.OpenConnectionAsync();await using var cmd=Command(c,"SELECT id,feed_id,config::text,status,created_at FROM stream_datasets WHERE id=$1",id);
-        await using var r=await cmd.ExecuteReaderAsync();return await r.ReadAsync()?new(r.GetGuid(0),r.GetGuid(1),Wire.Deserialize<FeedConfig>(r.GetString(2)),r.GetString(3),r.GetDateTime(4)):null;
+        await using var c=await db.OpenConnectionAsync();await using var cmd=Command(c,"SELECT id,feed_id,config::text,status,created_at,input_dataset_id FROM stream_datasets WHERE id=$1",id);
+        await using var r=await cmd.ExecuteReaderAsync();return await r.ReadAsync()?new(r.GetGuid(0),r.GetGuid(1),Wire.Deserialize<FeedConfig>(r.GetString(2)),r.GetString(3),r.GetDateTime(4),r.IsDBNull(5)?null:r.GetGuid(5)):null;
     }
     public async Task<bool> Ingest(string group, StreamBatch batch, string body, string topic, int partition, long offset)
     {
@@ -88,6 +90,8 @@ public sealed class StreamStore(NpgsqlDataSource db)
     }
     public async Task<bool> Complete(Guid id, string group=Wire.TransformGroup)
     {
+        var dataset = await GetDataset(id);
+        id = dataset?.InputDatasetId ?? id;
         var rows=await Query("SELECT source,count(*) AS batches,max(total_batches) AS expected_batches,sum(row_count) AS rows,max(total_rows) AS expected_rows,min(sequence) AS first,max(sequence) AS last FROM stream_batches WHERE dataset_id=$1 AND consumer_group=$2 GROUP BY source",id,group);
         return rows.Count==2&&rows.All(r=>Convert.ToInt64(r["batches"])==Convert.ToInt64(r["expectedBatches"])&&Convert.ToInt64(r["rows"])==Convert.ToInt64(r["expectedRows"])&&Convert.ToInt32(r["first"])==0&&Convert.ToInt32(r["last"])==Convert.ToInt32(r["expectedBatches"])-1);
     }
@@ -97,13 +101,24 @@ public sealed class StreamStore(NpgsqlDataSource db)
         await using var r=await cmd.ExecuteReaderAsync(ct);await using var file=new StreamWriter(path,false);
         while(await r.ReadAsync(ct)){using var doc=JsonDocument.Parse(r.GetString(0));foreach(var row in doc.RootElement.EnumerateArray())await file.WriteLineAsync(row.GetRawText().AsMemory(),ct);}
     }
-    public async Task Finish(Dataset dataset,int count,string path,double ms)
+    public async Task Finish(Dataset dataset,int count,string path,double ms,object? execution = null)
     {
         await using var c=await db.OpenConnectionAsync();await using var tx=await c.BeginTransactionAsync();
         var eventId=Guid.NewGuid();var body=Wire.Serialize(new{schemaVersion=1,eventId,datasetId=dataset.Id,feedId=dataset.FeedId,rowCount=count,completedAt=DateTime.UtcNow});
-        await using(var cmd=Command(c,"UPDATE stream_datasets SET status='ready',result_rows=$2,result_path=$3,transform_ms=$4,ready_at=now(),error=NULL WHERE id=$1 AND status='processing'",dataset.Id,count,path,ms))if(await cmd.ExecuteNonQueryAsync()!=1)throw new InvalidDataException("Dataset invalidated while transforming");
+        await using(var cmd=Command(c,"UPDATE stream_datasets SET status='ready',result_rows=$2,result_path=$3,transform_ms=$4,ready_at=now(),error=NULL,execution=$5::jsonb WHERE id=$1 AND status='processing'",dataset.Id,count,path,ms,Wire.Serialize(execution)))if(await cmd.ExecuteNonQueryAsync()!=1)throw new InvalidDataException("Dataset invalidated while transforming");
         await using(var cmd=Command(c,"INSERT INTO stream_outbox(id,dataset_id,payload) VALUES($1,$2,$3::jsonb) ON CONFLICT(dataset_id) DO NOTHING",eventId,dataset.Id,body))await cmd.ExecuteNonQueryAsync();
         await tx.CommitAsync();
     }
     public Task Fail(Guid id,string message)=>Execute("UPDATE stream_datasets SET status='failed',error=$2 WHERE id=$1 AND status<>'ready'",id,message[..Math.Min(message.Length,1000)]);
+    public async Task<Guid> Analyze(Guid id, string engine)
+    {
+        Engines.Validate(engine);
+        var original = await GetDataset(id) ?? throw new KeyNotFoundException("Dataset not found");
+        if (original.Status != "ready" || !await Complete(id))
+            throw new InvalidOperationException("A complete ready dataset is required for engine comparison");
+        var next = Guid.NewGuid();
+        await Execute("INSERT INTO stream_datasets(id,feed_id,config,status,published_at,input_dataset_id) VALUES($1,$2,$3::jsonb,'published',now(),$4)",
+            next, original.FeedId, Wire.Serialize(original.Config with { Engine = engine }), original.InputDatasetId ?? original.Id);
+        return next;
+    }
 }

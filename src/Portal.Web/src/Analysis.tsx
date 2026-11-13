@@ -14,6 +14,8 @@ import {
 import { data, execute, json, download, csv, fmt } from "./api";
 import { PageHeading, ErrorBox, Empty, Loading, Modal } from "./ui";
 import { Chart } from "./Chart";
+import { EnginePicker } from "./EnginePicker";
+import { prepareAnalysis, engineNames, type Execution } from "./engines";
 import {
   canReuseAppearance,
   summarizeRender,
@@ -60,6 +62,9 @@ export function Analysis({
     renderStartedAt: 0,
     receiveMs: null,
   });
+  const [progress, setProgress] = useState("");
+  const [execution, setExecution] = useState<Execution>();
+  const [waitedForTransform, setWaitedForTransform] = useState(false);
   const activeBatch = useRef(batch);
   const [metrics, setMetrics] = useState<Record<string, RenderMeasure>>({});
   function beginBatch(
@@ -144,6 +149,11 @@ export function Analysis({
     setBusy(true);
     setError("");
     try {
+      const prepared = await prepareAnalysis(config, a.signal, setProgress);
+      config = prepared.config;
+      setExecution(prepared.execution);
+      setWaitedForTransform(!!prepared.createdDataset);
+      setProgress("차트 데이터 조회 중");
       const r = await execute(
         "/api/chart/scatter",
         "POST",
@@ -158,13 +168,19 @@ export function Analysis({
       setExpanded(undefined);
       setSpec(r.data);
       setApplied({ ...config });
+      setDraft({ ...config });
+      if (config.source === "transformed" && config.datasetId)
+        history.replaceState(null, "", "#analysis?dataset=" + config.datasetId);
       setMs(r.durationMs);
       setPage(0);
       setPoint(undefined);
     } catch (e: any) {
       if (!a.signal.aborted) setError(e.message);
     } finally {
-      if (abort.current === a) setBusy(false);
+      if (abort.current === a) {
+        setBusy(false);
+        setProgress("");
+      }
     }
   }
   function chooseSource(source: string, sampleSize = draft.sampleSize) {
@@ -173,6 +189,7 @@ export function Analysis({
       ...draft,
       source,
       datasetId: null,
+      datasetEngine: undefined,
       sampleSize,
       lotId: null,
       category: joined ? "lot_id" : "lotId",
@@ -334,12 +351,24 @@ export function Analysis({
               ))}
             </select>
           </label>
+          {draft.source === "joined" || draft.source === "transformed" ? (
+            <EnginePicker
+              value={draft.engine ?? "duckdb"}
+              onChange={(engine) => setDraft({ ...draft, engine })}
+              disabled={busy}
+            />
+          ) : (
+            <p className="mapping-note">
+              원본 API 직접 조회입니다. EDS × Defect를 선택하면 변환 엔진을
+              선택할 수 있습니다.
+            </p>
+          )}
           <label>
             Lot 필터
             <input
               aria-label="분석 Lot 필터"
               disabled={draft.source === "transformed"}
-              placeholder={draft.sampleSize ? "BENCH-001" : "LOT-101"}
+              placeholder={draft.source === "transformed" ? "변환 시 적용된 조건" : draft.sampleSize ? "BENCH-001" : "LOT-101"}
               value={draft.lotId ?? ""}
               onChange={(e) =>
                 setDraft({ ...draft, lotId: e.target.value || null })
@@ -501,9 +530,36 @@ export function Analysis({
               설정이 변경되었습니다. 아래 결과는 마지막 실행 기준입니다.
             </div>
           )}
-          {busy && <Loading />}
+          {busy && (
+            <>
+              <Loading />
+              <div className="engine-progress" role="status">
+                {progress}
+                <small>
+                  대기를 취소해도 시작된 서버 변환은 계속됩니다. Data
+                  streams에서 결과를 확인할 수 있습니다.
+                </small>
+              </div>
+            </>
+          )}
           {spec && applied ? (
             <>
+              {execution && (
+                <div
+                  className="engine-execution"
+                  data-engine={execution.engine}
+                >
+                  <strong>{engineNames[execution.engine]}</strong>
+                  <span>입력 준비 {duration(execution.preparationMs)}</span>
+                  <span>엔진 실행·쓰기 {duration(execution.engineMs)}</span>
+                  <span>변환 전체 {duration(execution.totalMs)}</span>
+                  <span>Parquet {execution.resultFiles}개</span>
+                  <small>
+                    저장된 데이터셋의 변환 측정입니다. 아래 조회·표시 시간과
+                    구분합니다.
+                  </small>
+                </div>
+              )}
               <div className="result-strip">
                 <div>
                   <small>원본 행</small>
@@ -549,7 +605,7 @@ export function Analysis({
                   {fmt(visiblePoints)}/{fmt(spec.plottedRows)}점 · 샘플링 없음
                 </div>
                 <div>
-                  <small>조회 · 수신</small>
+                  <small>{waitedForTransform ? "분석 대기 · 조회 · 수신" : "조회 · 수신"}</small>
                   <strong>
                     {batch.receiveMs == null
                       ? "재조회 없음"

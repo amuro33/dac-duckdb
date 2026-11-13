@@ -4,7 +4,7 @@ flowchart TB
   subgraph cluster["Docker 위 kind Kubernetes · namespace dac"]
     portal["waferscope Pod<br/>.NET 10 BFF + React 정적 파일"]
     dac["dac-worker Pod<br/>.NET 10 · Oracle 조회"]
-    transform["data-transform-service Pod<br/>Kafka 수신 / DuckDB / 결과 API"]
+    transform["data-transform-service Pod<br/>Kafka 수신 / 엔진 선택 / 결과 API"]
     publisher["dac-publisher Pod<br/>주기적 원본 발행"]
     result[("결과 PVC · Parquet<br/>kind 노드 hostPath")]
     observer["stream-observer Pod<br/>독립 소비자 그룹"]
@@ -17,6 +17,7 @@ flowchart TB
     oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
     postgres[("PostgreSQL 18<br/>Views / Runs / 스트림 상태·입력")]
     kafka[("Kafka · 실제 EDS / Defect")]
+    engines["Spark / DataFusion / Drill<br/>별도 실행 서비스"]
   end
   browser -->|"동일 출처 HTTP"| gateway
   gateway -->|"NodePort 30082"| portal
@@ -24,6 +25,7 @@ flowchart TB
   portal -->|"스트림 제어"| transform
   publisher -->|"원본 조회"| dac
   publisher -->|"실제 행"| kafka
+  transform <-->|"입력 Parquet / 결과 파일"| engines
   kafka --> transform
   kafka --> observer
   transform --> postgres

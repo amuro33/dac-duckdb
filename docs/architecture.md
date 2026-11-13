@@ -1,5 +1,7 @@
 # 시스템 설계와 데이터 흐름
 
+**분석 엔진 확장:** DuckDB·Spark·DataFusion·Drill 선택과 동일 원본 재분석을 지원합니다. 현재 구현·배포 경계는 [선택형 분석 엔진](engines.md)을 참고하세요.
+
 **Kafka 확장 적용:** 원본 조회와 DuckDB 변환을 별도 Pod로 분리했습니다. 실제 행 발행·독립 소비자 그룹·영속 수신·Parquet 결과의 최신 구조는 [Kafka 스트리밍 설계](streaming.md)를 참고하세요. 아래 대용량 직접 조회 경로도 계속 지원합니다.
 
 이 문서는 실행 중인 구현을 기준으로 작성했습니다. 아래 다이어그램에서 **Pod / 컨테이너 / DB 서버 / 인메모리 엔진**을 구분합니다. Mermaid 원본과 확대 가능한 SVG는 [diagrams](diagrams)에 있으며 아래 Mermaid 블록은 GitHub에서 직접 렌더링됩니다.
@@ -13,7 +15,7 @@ flowchart TB
   subgraph cluster["Docker 위 kind Kubernetes · namespace dac"]
     portal["waferscope Pod<br/>.NET 10 BFF + React 정적 파일"]
     dac["dac-worker Pod<br/>.NET 10 · Oracle 조회"]
-    transform["data-transform-service Pod<br/>Kafka 수신 / DuckDB / 결과 API"]
+    transform["data-transform-service Pod<br/>Kafka 수신 / 엔진 선택 / 결과 API"]
     publisher["dac-publisher Pod<br/>주기적 원본 발행"]
     result[("결과 PVC · Parquet<br/>kind 노드 hostPath")]
     observer["stream-observer Pod<br/>독립 소비자 그룹"]
@@ -26,6 +28,7 @@ flowchart TB
     oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
     postgres[("PostgreSQL 18<br/>Views / Runs / 스트림 상태·입력")]
     kafka[("Kafka · 실제 EDS / Defect")]
+    engines["Spark / DataFusion / Drill<br/>별도 실행 서비스"]
   end
   browser -->|"동일 출처 HTTP"| gateway
   gateway -->|"NodePort 30082"| portal
@@ -33,6 +36,7 @@ flowchart TB
   portal -->|"스트림 제어"| transform
   publisher -->|"원본 조회"| dac
   publisher -->|"실제 행"| kafka
+  transform <-->|"입력 Parquet / 결과 파일"| engines
   kafka --> transform
   kafka --> observer
   transform --> postgres

@@ -96,7 +96,7 @@ app.MapPost("/api/execute", async (ExecuteInput input, IHttpClientFactory client
             message.Content = new StringContent(input.Body?.GetRawText() ?? "{}", Encoding.UTF8, "application/json");
         using var response = await clients.CreateClient(target).SendAsync(message, ct);
         status = (int)response.StatusCode;
-        data = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+        data = await UpstreamJson.Read(response.Content, ct);
         if (data.ValueKind == JsonValueKind.Array)
             count = data.GetArrayLength();
         else if (data.ValueKind == JsonValueKind.Object)
@@ -106,6 +106,7 @@ app.MapPost("/api/execute", async (ExecuteInput input, IHttpClientFactory client
         }
     }
     catch (HttpRequestException) { status = 502; data = JsonSerializer.SerializeToElement(new { detail = "Upstream service unavailable" }); }
+    catch (JsonException) { status = 502; data = JsonSerializer.SerializeToElement(new { detail = "Upstream returned an invalid JSON response" }); }
     catch (TaskCanceledException) when (!ct.IsCancellationRequested) { status = 504; data = JsonSerializer.SerializeToElement(new { detail = "Upstream service timed out" }); }
     var ms = Math.Round(sw.Elapsed.TotalMilliseconds, 1);
     if (input.Record)

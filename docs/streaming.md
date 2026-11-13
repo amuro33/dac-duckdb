@@ -1,5 +1,7 @@
 # Kafka 데이터 스트림과 분리된 변환 서비스
 
+**분석 엔진 확장:** DuckDB·Spark·DataFusion·Drill 선택과 동일 원본 재분석을 지원합니다. 현재 구현·배포 경계는 [선택형 분석 엔진](engines.md)을 참고하세요.
+
 2026-11-13 구현. **Kafka에는 작업 ID만이 아니라 실제 EDS·결함 행 데이터가 들어갑니다.** 두 소비자 그룹이 같은 원본을 독립적으로 읽습니다. DuckDB 계산은 DAC에서 분리한 `data-transform-service`에서 수행합니다.
 
 ## 실행과 화면

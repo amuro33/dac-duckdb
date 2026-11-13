@@ -4,7 +4,7 @@ namespace Streaming.Core;
 
 public record FeedConfig(string Name, int? SampleSize = 1000, string? LotId = null, int IntervalSeconds = 60,
     string Operation = "join", string JoinType = "left", decimal? MinYield = null, string? Severity = null,
-    bool Enabled = true, int? MaxRuns = null)
+    bool Enabled = true, int? MaxRuns = null, string Engine = "duckdb")
 {
     public TransformRequest Transform => new(Operation, JoinType, LotId, MinYield, Severity, 1000);
     public void Validate()
@@ -14,6 +14,7 @@ public record FeedConfig(string Name, int? SampleSize = 1000, string? LotId = nu
         if (IntervalSeconds is < 10 or > 86400) throw new ArgumentException("Interval must be 10–86400 seconds");
         if (MaxRuns is < 1 or > 10000) throw new ArgumentException("Invalid run count");
         Validation.Transform(Transform);
+        Engines.Validate(Engine);
     }
 }
 public record StreamBatch(int SchemaVersion, Guid DatasetId, Guid FeedId, string Source, int Sequence,
@@ -39,7 +40,16 @@ public record StreamBatch(int SchemaVersion, Guid DatasetId, Guid FeedId, string
         }
     }
 }
-public record Dataset(Guid Id, Guid FeedId, FeedConfig Config, string Status, DateTime CreatedAt);
+public record Dataset(Guid Id, Guid FeedId, FeedConfig Config, string Status, DateTime CreatedAt, Guid? InputDatasetId = null);
+public record AnalyzeRequest(string Engine = "duckdb");
+public static class Engines
+{
+    public static readonly string[] Names = ["duckdb", "spark", "datafusion", "drill"];
+    public static void Validate(string engine)
+    {
+        if (!Names.Contains(engine)) throw new ArgumentException("engine must be duckdb, spark, datafusion or drill");
+    }
+}
 public static class Wire
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);

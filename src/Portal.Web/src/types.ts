@@ -1,6 +1,8 @@
 export type Config = {
   source: string;
   datasetId?: string | null;
+  engine?: "duckdb" | "spark" | "datafusion" | "drill";
+  datasetEngine?: "duckdb" | "spark" | "datafusion" | "drill";
   category: string | null;
   legend: string | null;
   x: string;

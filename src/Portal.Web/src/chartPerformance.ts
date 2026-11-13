@@ -25,6 +25,7 @@ export function canReuseAppearance(a: Config, b: Config) {
     JSON.stringify([
       c.source,
       c.datasetId ?? null,
+      c.engine ?? "duckdb",
       c.category ?? null,
       c.legend ?? null,
       c.x,

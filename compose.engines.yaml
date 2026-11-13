@@ -1,0 +1,89 @@
+name: waferscope-engines
+services:
+  engine-volume-init:
+    image: busybox:1.37
+    user: root
+    command: [sh, -c, 'mkdir -p /engine-data/jobs /engine-data/spark-events && chmod -R 0777 /engine-data']
+    volumes: [engine-data:/engine-data]
+  spark-master:
+    image: waferscope-engines:dev
+    build: {context: ., dockerfile: src/Analytics.Engines/Dockerfile}
+    hostname: spark-master
+    entrypoint: [/opt/spark/bin/spark-class, org.apache.spark.deploy.master.Master]
+    command: [--host, spark-master, --port, '7077', --webui-port, '8080']
+    environment: {SPARK_DAEMON_MEMORY: 256m, SPARK_LOCAL_IP: spark-master}
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [databases]
+  spark-worker-1:
+    image: waferscope-engines:dev
+    hostname: spark-worker-1
+    entrypoint: [/opt/spark/bin/spark-class, org.apache.spark.deploy.worker.Worker]
+    command: [--cores, '1', --memory, 2g, --webui-port, '8081', 'spark://spark-master:7077']
+    environment: {SPARK_DAEMON_MEMORY: 256m, SPARK_LOCAL_IP: spark-worker-1}
+    volumes: [engine-data:/engine-data]
+    depends_on: {spark-master: {condition: service_started}, engine-volume-init: {condition: service_completed_successfully}}
+    mem_limit: 3g
+    cpus: 1.5
+    restart: unless-stopped
+    networks: [databases]
+  spark-worker-2:
+    image: waferscope-engines:dev
+    hostname: spark-worker-2
+    entrypoint: [/opt/spark/bin/spark-class, org.apache.spark.deploy.worker.Worker]
+    command: [--cores, '1', --memory, 2g, --webui-port, '8081', 'spark://spark-master:7077']
+    environment: {SPARK_DAEMON_MEMORY: 256m, SPARK_LOCAL_IP: spark-worker-2}
+    volumes: [engine-data:/engine-data]
+    depends_on: {spark-master: {condition: service_started}, engine-volume-init: {condition: service_completed_successfully}}
+    mem_limit: 3g
+    cpus: 1.5
+    restart: unless-stopped
+    networks: [databases]
+  drill:
+    image: apache/drill:1.22.0-openjdk-17
+    hostname: drill
+    entrypoint: [/bin/sh, -c, 'umask 000; exec "$$DRILL_HOME/bin/drill-embedded"']
+    stdin_open: true
+    tty: true
+    environment:
+      DRILL_HEAP: 1G
+      DRILL_MAX_DIRECT_MEMORY: 1G
+      # The upstream image's older JDK fails probing cgroup v2 on this host.
+      # Heap/direct memory and CPU are explicitly bounded instead.
+      JAVA_TOOL_OPTIONS: '-XX:-UseContainerSupport -XX:ActiveProcessorCount=2'
+    volumes: [engine-data:/engine-data]
+    depends_on: {engine-volume-init: {condition: service_completed_successfully}}
+    mem_limit: 3g
+    cpus: 2
+    restart: unless-stopped
+    networks: [databases]
+  analytics-engines:
+    image: waferscope-engines:dev
+    hostname: analytics-engines
+    environment:
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_MASTER_WEB: http://spark-master:8080
+      SPARK_DRIVER_HOST: analytics-engines
+      SPARK_LOCAL_IP: analytics-engines
+      SPARK_DEPLOYMENT: colocated-containers
+      SPARK_PHYSICAL_HOSTS: '1'
+      DRILL_URL: http://drill:8047
+      JAVA_TOOL_OPTIONS: -Xmx1536m
+    volumes: [engine-data:/engine-data]
+    depends_on: {spark-worker-1: {condition: service_started}, spark-worker-2: {condition: service_started}, drill: {condition: service_started}}
+    mem_limit: 4g
+    cpus: 2
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8095/health/live', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks: [databases]
+volumes:
+  engine-data:
+networks:
+  databases:
+    external: true
+    name: local-databases_default

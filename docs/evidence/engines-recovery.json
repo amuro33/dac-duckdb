@@ -1,0 +1,8 @@
+{
+  "passed": 3,
+  "checks": [
+    "Persisted partitioned Parquet result remains readable while its compute engine is offline",
+    "Offline Drill produces a visible failed job without silently running DuckDB",
+    "Retry after engine recovery reuses the original immutable inputs and publishes a complete Drill result"
+  ]
+}

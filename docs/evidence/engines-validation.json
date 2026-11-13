@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-13",
+  "dotnet": {
+    "passed": 186,
+    "projects": {
+      "Dac.Worker.Tests": 21,
+      "Chart.Worker.Tests": 61,
+      "Portal.Api.Tests": 48,
+      "Data.Transform.Tests": 56
+    }
+  },
+  "frontend": {
+    "passed": 28
+  },
+  "pythonContracts": {
+    "passed": 5
+  },
+  "engineIntegration": {
+    "passed": 11,
+    "datasetExecutions": 32,
+    "report": "engines-integration.json"
+  },
+  "browser": {
+    "passed": 10,
+    "report": "engines-browser.json"
+  },
+  "engineRecovery": {
+    "passed": 3,
+    "report": "engines-recovery.json"
+  },
+  "legacyPortalIntegration": {
+    "passed": 23
+  },
+  "physicalHosts": 1,
+  "sparkWorkerContainers": 2
+}

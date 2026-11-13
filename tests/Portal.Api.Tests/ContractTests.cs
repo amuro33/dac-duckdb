@@ -47,6 +47,8 @@ public class StreamingRoutesTests
 {
     [Xunit.Theory]
     [Xunit.InlineData("GET", "/api/streams/status")]
+    [Xunit.InlineData("GET", "/api/streams/engines")]
+    [Xunit.InlineData("POST", "/api/streams/datasets/11111111-1111-1111-1111-111111111111/analyze")]
     [Xunit.InlineData("GET", "/api/streams/feeds")]
     [Xunit.InlineData("POST", "/api/streams/feeds")]
     [Xunit.InlineData("GET", "/api/streams/datasets/11111111-1111-1111-1111-111111111111/rows?limit=1000")]
@@ -54,8 +56,14 @@ public class StreamingRoutesTests
     public void ExplicitStreamRoutesAllowed(string method, string path) => Xunit.Assert.Equal("transform", Portal.Api.Guard.Target(new(path, method)));
     [Xunit.Theory]
     [Xunit.InlineData("DELETE", "/api/streams/feeds")]
+    [Xunit.InlineData("POST", "/api/streams/engines")]
+    [Xunit.InlineData("GET", "/api/streams/datasets/11111111-1111-1111-1111-111111111111/analyze")]
     [Xunit.InlineData("POST", "/api/streams/datasets")]
     [Xunit.InlineData("GET", "/api/streams/datasets/not-a-guid/rows")]
     [Xunit.InlineData("POST", "/api/streams/feeds/11111111-1111-1111-1111-111111111111/delete")]
     public void UnregisteredRoutesRejected(string method, string path) => Xunit.Assert.Throws<ArgumentException>(() => Portal.Api.Guard.Target(new(path, method)));
+
+    [Theory][InlineData("duckdb")][InlineData("spark")][InlineData("drill")][InlineData("datafusion")]
+    public void SavedViewsRetainSupportedEngines(string engine) => Guard.Config(JsonSerializer.SerializeToElement(new { source="joined",x="inspected_at",y="yield_pct",xType="date",engine }));
+    [Fact] public void UnknownSavedEngineRejected() => Assert.Throws<ArgumentException>(() => Guard.Config(JsonSerializer.SerializeToElement(new { source="joined",x="inspected_at",y="yield_pct",xType="date",engine="fake" })));
 }

@@ -1,5 +1,7 @@
 # API 사용 가이드
 
+**분석 엔진 확장:** DuckDB·Spark·DataFusion·Drill 선택과 동일 원본 재분석을 지원합니다. 현재 구현·배포 경계는 [선택형 분석 엔진](engines.md)을 참고하세요.
+
 Kafka 발행/상태/저장 결과 API와 `source=transformed` 계약은 [streaming.md](streaming.md)를 참고하세요. 기존 `/api/dac/transform`은 별도 변환 서비스로 전달하는 호환 경로입니다.
 
 통합 UI는 `http://localhost:8082`의 BFF만 호출합니다. DAC 직접 API는 `8080`, Chart 직접 API는 `8081` 진단 주소에서 사용할 수 있습니다. 각 경로는 현재 로컬 개발 환경 기준이며 사용자 인증은 구현하지 않았습니다.

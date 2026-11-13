@@ -1,0 +1,16 @@
+flowchart TB
+  UI["Analysis / Data streams<br/>엔진 선택 · 상태 · 결과 차트"] --> API["data-transform-service<br/>입력 검증 · 작업 상태<br/>공통 결과 API"]
+  PG[("PostgreSQL<br/>Kafka 입력 배치<br/>상태 · 실행 메타데이터")] --> API
+  API --> PREP["공통 입력 준비<br/>타입 정규화<br/>원본 키 중복 검증"]
+  PREP --> DUCK["DuckDB<br/>서비스 내부 SQL 실행"]
+  PREP -->|"체크섬 검증 Parquet 전송"| GATE["Analytics Engines<br/>내부 실행 어댑터"]
+  GATE --> SP["Spark driver + master<br/>워커 2개<br/>executor 병렬 실행"]
+  GATE --> DF["DataFusion<br/>Arrow / Rust 쿼리 엔진"]
+  GATE --> DR["Drillbit<br/>SQL / Parquet CTAS"]
+  SP --> PARTS[("Parquet 분할 결과<br/>불변 manifest<br/>건수 · 체크섬")]
+  DF --> PARTS
+  DR --> PARTS
+  DUCK --> RESULT[("변환 서비스 결과 PVC<br/>단일 파일 또는 분할 파일")]
+  PARTS -->|"파일별 전송·검증"| RESULT
+  RESULT --> READ["DuckDB 결과 조회<br/>전체 페이지<br/>안정적인 row_id"]
+  READ --> CH["chart-worker<br/>Category / Legend / ECharts"]

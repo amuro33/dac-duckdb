@@ -3,7 +3,7 @@ using Streaming.Core;
 using System.Diagnostics;
 namespace Data.Transform;
 
-public sealed class DatasetEngine(StreamStore store,IConfiguration config)
+public sealed class DatasetEngine(StreamStore store,IConfiguration config,RemoteEngines remote)
 {
     readonly SemaphoreSlim readers=new(2);
     public string Root => config["ResultDirectory"]??"/data/results";
@@ -17,7 +17,8 @@ public sealed class DatasetEngine(StreamStore store,IConfiguration config)
     {
         var sw=Stopwatch.StartNew();var dir=Path.Combine(Root,dataset.Id.ToString("N"));Directory.CreateDirectory(dir);
         var eds=Path.Combine(dir,"eds.ndjson");var defects=Path.Combine(dir,"defects.ndjson");var partial=Path.Combine(dir,"result.partial.parquet");var final=Path.Combine(dir,"result.parquet");
-        await store.WriteInput(dataset.Id,"eds",eds,ct);await store.WriteInput(dataset.Id,"defects",defects,ct);
+        dataset.Config.Validate();
+        await store.WriteInput(dataset.InputDatasetId ?? dataset.Id,"eds",eds,ct);await store.WriteInput(dataset.InputDatasetId ?? dataset.Id,"defects",defects,ct);
         using var db=Open();using var cmd=db.CreateCommand();
         cmd.CommandText=$$"""
         SET temp_directory={{Quote(Path.Combine(dir,"spill"))}};
@@ -29,6 +30,27 @@ public sealed class DatasetEngine(StreamStore store,IConfiguration config)
         ALTER TABLE defects ADD PRIMARY KEY(defect_id);
         """;
         cmd.ExecuteNonQuery();ct.ThrowIfCancellationRequested();
+        if (dataset.Config.Engine != "duckdb")
+        {
+            foreach (var name in new[] { "eds", "defects" })
+            {
+                var input = Path.Combine(dir, name + ".parquet");
+                File.Delete(input);
+                cmd.CommandText = $"COPY {name} TO {Quote(input)} (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 65536)";
+                cmd.ExecuteNonQuery();
+            }
+            db.Close();
+            var preparationMs = sw.Elapsed.TotalMilliseconds;
+            var manifest = await remote.Execute(dataset, dir, ct);
+            var totalMs = sw.Elapsed.TotalMilliseconds;
+            await store.Finish(dataset, checked((int)manifest.RowCount), Path.Combine(dir, "parts", "manifest.json"), totalMs,
+                new { engine = manifest.Engine, preparationMs, engineMs = manifest.EngineMs,
+                    transferAndCoordinationMs = Math.Max(0, totalMs - preparationMs - manifest.EngineMs),
+                    totalMs, resultFiles = manifest.Files.Count, details = manifest.Details });
+            foreach (var input in new[] { eds, defects, Path.Combine(dir,"eds.parquet"), Path.Combine(dir,"defects.parquet") }) File.Delete(input);
+            return;
+        }
+        var prepareMs = sw.Elapsed.TotalMilliseconds;
         dataset.Config.Validate();var r=dataset.Config;
         var source=r.Operation=="merge"
           ? "SELECT 'eds' AS source_type,lot_id,wafer_id,product,yield_pct,NULL::VARCHAR defect_id,NULL::VARCHAR defect_type,NULL::VARCHAR severity,NULL::INTEGER defect_count,inspected_at FROM eds UNION ALL SELECT 'defect',lot_id,wafer_id,NULL,NULL,defect_id,defect_type,severity,defect_count,inspected_at FROM defects"
@@ -38,7 +60,9 @@ public sealed class DatasetEngine(StreamStore store,IConfiguration config)
         cmd.CommandText="SELECT count(*) FROM result";var count=Convert.ToInt32(cmd.ExecuteScalar());
         cmd.CommandText=$"COPY result TO {Quote(partial)} (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 16384)";cmd.ExecuteNonQuery();ct.ThrowIfCancellationRequested();
         db.Close(); // Release spill files before cleanup; the Parquet writer has completed.
-        File.Move(partial,final,true);await store.Finish(dataset,count,final,sw.Elapsed.TotalMilliseconds);
+        File.Move(partial,final,true);
+        var total = sw.Elapsed.TotalMilliseconds;
+        await store.Finish(dataset,count,final,total,new { engine = "duckdb", preparationMs = prepareMs, engineMs = total - prepareMs, totalMs = total, resultFiles = 1, threads = 2 });
         File.Delete(eds);File.Delete(defects);var spill=Path.Combine(dir,"spill");if(Directory.Exists(spill))Directory.Delete(spill,true);
     }
     public async Task<object> Read(Guid id,int afterId,int limit,CancellationToken ct)
@@ -51,6 +75,8 @@ public sealed class DatasetEngine(StreamStore store,IConfiguration config)
         await readers.WaitAsync(ct);
         try
         {
+            if (path.EndsWith("manifest.json", StringComparison.Ordinal))
+                return await ReadParts(id, path, count, afterId, limit, ct);
             using var db=Open();using var cmd=db.CreateCommand();cmd.CommandText=$"SELECT * FROM read_parquet({Quote(path)}) WHERE row_id>? AND row_id<=? ORDER BY row_id";
             cmd.Parameters.Add(new DuckDBParameter{Value=(long)afterId});cmd.Parameters.Add(new DuckDBParameter{Value=(long)afterId+limit});
             using var reader=cmd.ExecuteReader();var data=new List<Dictionary<string,object?>>();
@@ -58,5 +84,38 @@ public sealed class DatasetEngine(StreamStore store,IConfiguration config)
             return new{datasetId=id,totalRows=count,returnedRows=data.Count,hasMore=(long)afterId+data.Count<count,sampling="none",data};
         }
         finally{readers.Release();}
+    }
+
+    async Task<object> ReadParts(Guid id, string path, int count, int afterId, int limit, CancellationToken ct)
+    {
+        var manifest = Wire.Deserialize<ResultManifest>(await File.ReadAllTextAsync(path, ct));
+        RemoteEngines.ValidateManifest(manifest, manifest.Engine);
+        if (manifest.RowCount != count) throw new InvalidDataException("Result metadata mismatch");
+        var data = new List<Dictionary<string, object?>>();
+        using var db = Open();
+        foreach (var part in manifest.Files.Where(p => p.Offset < (long)afterId + limit && p.Offset + p.Rows > afterId))
+        {
+            // Names in this local manifest are generated by RemoteEngines, never supplied by the browser.
+            if (Path.GetFileName(part.Name) != part.Name) throw new InvalidDataException("Invalid result part name");
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = $"SELECT file_row_number + {part.Offset + 1} AS row_id, * EXCLUDE(file_row_number) FROM read_parquet({Quote(Path.Combine(Path.GetDirectoryName(path)!, part.Name))}, file_row_number=true) WHERE file_row_number>=? AND file_row_number<? ORDER BY file_row_number";
+            cmd.Parameters.Add(new DuckDBParameter { Value = Math.Max(0, afterId - part.Offset) });
+            cmd.Parameters.Add(new DuckDBParameter { Value = Math.Min(part.Rows, (long)afterId + limit - part.Offset) });
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                ct.ThrowIfCancellationRequested();
+                var row = new Dictionary<string, object?>();
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    row[reader.GetName(i)] = value is DateTime date ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : value;
+                }
+                data.Add(row);
+            }
+        }
+        if (data.Count != Math.Min(limit, Math.Max(0, count - afterId)))
+            throw new InvalidDataException("Incomplete Parquet result page");
+        return new { datasetId = id, engine = manifest.Engine, totalRows = count, returnedRows = data.Count, hasMore = (long)afterId + data.Count < count, sampling = "none", data };
     }
 }

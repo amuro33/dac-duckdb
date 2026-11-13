@@ -1,0 +1,547 @@
+{
+  "passed": 11,
+  "checks": [
+    "All four real execution engines available; Spark has two distinct worker executors",
+    "1000 pairs: four engines preserve every row and produce identical logical values",
+    "Base join: four engines preserve every row and produce identical logical values",
+    "Base merge: four engines preserve every row and produce identical logical values",
+    "Base filter: four engines preserve every row and produce identical logical values",
+    "Empty inputs: four engines preserve every row and produce identical logical values",
+    "Invalid engine requests are rejected instead of falling back",
+    "All four engine outputs reach the chart with complete point counts",
+    "10000 pairs: four engines preserve every row and produce identical logical values",
+    "100000 pairs: four engines preserve every row and produce identical logical values",
+    "1000000 pairs: four engines preserve every row and produce identical logical values"
+  ],
+  "environment": {
+    "duckdb": {
+      "available": true,
+      "mode": "single process",
+      "threads": 2
+    },
+    "remote": {
+      "spark": {
+        "version": "4.2.1",
+        "available": true,
+        "workers": [
+          {
+            "id": "worker-20261113053936-172.18.0.7-41205",
+            "host": "172.18.0.7",
+            "cores": 1,
+            "state": "ALIVE"
+          },
+          {
+            "id": "worker-20261113053937-172.18.0.9-41135",
+            "host": "172.18.0.9",
+            "cores": 1,
+            "state": "ALIVE"
+          }
+        ],
+        "workerCount": 2,
+        "deployment": "colocated-containers",
+        "physicalHosts": 1
+      },
+      "datafusion": {
+        "available": true,
+        "version": "55.0.0",
+        "mode": "single-process / Arrow"
+      },
+      "drill": {
+        "available": true,
+        "version": "1.22.0",
+        "mode": "single Drillbit"
+      }
+    }
+  },
+  "measurements": [
+    {
+      "case": "1000 pairs",
+      "engine": "duckdb",
+      "datasetId": "c377d770-d4c6-4182-9d32-d0a443f9ee5f",
+      "sourceDatasetId": "c377d770-d4c6-4182-9d32-d0a443f9ee5f",
+      "rows": 1000,
+      "preparationMs": 21.6899,
+      "engineMs": 6.799999999999997,
+      "totalMs": 28.4899,
+      "files": 1
+    },
+    {
+      "case": "1000 pairs",
+      "engine": "spark",
+      "datasetId": "c84241a1-debc-4849-bd34-58c4072c79a4",
+      "sourceDatasetId": "c377d770-d4c6-4182-9d32-d0a443f9ee5f",
+      "rows": 1000,
+      "preparationMs": 28.2656,
+      "engineMs": 9098.057631010306,
+      "totalMs": 9142.6188,
+      "files": 4,
+      "coldStart": true,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 6
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 6
+        }
+      ]
+    },
+    {
+      "case": "1000 pairs",
+      "engine": "datafusion",
+      "datasetId": "f1ef02ac-58bd-4063-addc-383fd27c99bb",
+      "sourceDatasetId": "c377d770-d4c6-4182-9d32-d0a443f9ee5f",
+      "rows": 1000,
+      "preparationMs": 20.0668,
+      "engineMs": 14.40502901095897,
+      "totalMs": 41.451,
+      "files": 1
+    },
+    {
+      "case": "1000 pairs",
+      "engine": "drill",
+      "datasetId": "b412e721-49aa-4b0c-9656-49230d26ae1c",
+      "sourceDatasetId": "c377d770-d4c6-4182-9d32-d0a443f9ee5f",
+      "rows": 1000,
+      "preparationMs": 19.4143,
+      "engineMs": 1063.3491210028296,
+      "totalMs": 1089.2852,
+      "files": 1
+    },
+    {
+      "case": "Base join",
+      "engine": "duckdb",
+      "datasetId": "f1b52765-31df-4cba-9c75-4366c084ceb0",
+      "sourceDatasetId": "f1b52765-31df-4cba-9c75-4366c084ceb0",
+      "rows": 466,
+      "preparationMs": 13.8234,
+      "engineMs": 5.697400000000002,
+      "totalMs": 19.5208,
+      "files": 1
+    },
+    {
+      "case": "Base join",
+      "engine": "spark",
+      "datasetId": "49cb23d1-0218-4298-8057-65523f521e0b",
+      "sourceDatasetId": "f1b52765-31df-4cba-9c75-4366c084ceb0",
+      "rows": 466,
+      "preparationMs": 16.5791,
+      "engineMs": 1159.044015003019,
+      "totalMs": 1182.3017,
+      "files": 1,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 13
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 12
+        }
+      ]
+    },
+    {
+      "case": "Base join",
+      "engine": "datafusion",
+      "datasetId": "051ae77f-fac4-4238-943a-743e67d28534",
+      "sourceDatasetId": "f1b52765-31df-4cba-9c75-4366c084ceb0",
+      "rows": 466,
+      "preparationMs": 18.2498,
+      "engineMs": 4.7445090021938086,
+      "totalMs": 29.786,
+      "files": 1
+    },
+    {
+      "case": "Base join",
+      "engine": "drill",
+      "datasetId": "9434be7f-993e-40da-8334-0c96059b41af",
+      "sourceDatasetId": "f1b52765-31df-4cba-9c75-4366c084ceb0",
+      "rows": 466,
+      "preparationMs": 20.2467,
+      "engineMs": 334.3433330010157,
+      "totalMs": 361.3892,
+      "files": 1
+    },
+    {
+      "case": "Base merge",
+      "engine": "duckdb",
+      "datasetId": "e0f0a065-3c48-49b7-b8ee-025f054cde62",
+      "sourceDatasetId": "e0f0a065-3c48-49b7-b8ee-025f054cde62",
+      "rows": 776,
+      "preparationMs": 15.3106,
+      "engineMs": 5.2531,
+      "totalMs": 20.5637,
+      "files": 1
+    },
+    {
+      "case": "Base merge",
+      "engine": "spark",
+      "datasetId": "9c100adf-ea32-4274-a520-958f20fa634c",
+      "sourceDatasetId": "e0f0a065-3c48-49b7-b8ee-025f054cde62",
+      "rows": 776,
+      "preparationMs": 17.0887,
+      "engineMs": 734.8403159994632,
+      "totalMs": 767.8167,
+      "files": 8,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 19
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 18
+        }
+      ]
+    },
+    {
+      "case": "Base merge",
+      "engine": "datafusion",
+      "datasetId": "e65b9748-91c1-4242-9d6a-a369ff383e40",
+      "sourceDatasetId": "e0f0a065-3c48-49b7-b8ee-025f054cde62",
+      "rows": 776,
+      "preparationMs": 17.7282,
+      "engineMs": 4.225223005050793,
+      "totalMs": 29.4859,
+      "files": 2
+    },
+    {
+      "case": "Base merge",
+      "engine": "drill",
+      "datasetId": "e265954f-9778-46c9-9896-3e7dd0022f73",
+      "sourceDatasetId": "e0f0a065-3c48-49b7-b8ee-025f054cde62",
+      "rows": 776,
+      "preparationMs": 16.3404,
+      "engineMs": 244.95925298833754,
+      "totalMs": 267.4694,
+      "files": 1
+    },
+    {
+      "case": "Base filter",
+      "engine": "duckdb",
+      "datasetId": "a2af64d3-4515-403d-818a-6293c588dda9",
+      "sourceDatasetId": "a2af64d3-4515-403d-818a-6293c588dda9",
+      "rows": 46,
+      "preparationMs": 13.1851,
+      "engineMs": 7.515400000000001,
+      "totalMs": 20.7005,
+      "files": 1
+    },
+    {
+      "case": "Base filter",
+      "engine": "spark",
+      "datasetId": "59e0de9b-7b69-4363-9d70-eddc0895dad2",
+      "sourceDatasetId": "a2af64d3-4515-403d-818a-6293c588dda9",
+      "rows": 46,
+      "preparationMs": 16.7354,
+      "engineMs": 587.313134004944,
+      "totalMs": 614.3087,
+      "files": 4,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 24
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 25
+        }
+      ]
+    },
+    {
+      "case": "Base filter",
+      "engine": "datafusion",
+      "datasetId": "f48c7908-a7b3-4300-9d28-a9963eccd5cc",
+      "sourceDatasetId": "a2af64d3-4515-403d-818a-6293c588dda9",
+      "rows": 46,
+      "preparationMs": 17.6186,
+      "engineMs": 6.385173997841775,
+      "totalMs": 29.3834,
+      "files": 1
+    },
+    {
+      "case": "Base filter",
+      "engine": "drill",
+      "datasetId": "c263e87f-b4b6-4961-9bdb-3e2c88f9f9b7",
+      "sourceDatasetId": "a2af64d3-4515-403d-818a-6293c588dda9",
+      "rows": 46,
+      "preparationMs": 15.9769,
+      "engineMs": 432.7097090135794,
+      "totalMs": 454.3184,
+      "files": 1
+    },
+    {
+      "case": "Empty inputs",
+      "engine": "duckdb",
+      "datasetId": "c8dd345e-c202-4afd-8acc-56e5e71d1167",
+      "sourceDatasetId": "c8dd345e-c202-4afd-8acc-56e5e71d1167",
+      "rows": 0,
+      "preparationMs": 11.3792,
+      "engineMs": 2.3552,
+      "totalMs": 13.7344,
+      "files": 1
+    },
+    {
+      "case": "Empty inputs",
+      "engine": "spark",
+      "datasetId": "004076cb-cc14-467b-85af-60e8cd1579ad",
+      "sourceDatasetId": "c8dd345e-c202-4afd-8acc-56e5e71d1167",
+      "rows": 0,
+      "preparationMs": 11.7967,
+      "engineMs": 360.48160000063945,
+      "totalMs": 378.2477,
+      "files": 1,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 26
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 28
+        }
+      ]
+    },
+    {
+      "case": "Empty inputs",
+      "engine": "datafusion",
+      "datasetId": "b1bedb0e-d0b3-42b4-b6cf-e52fde128418",
+      "sourceDatasetId": "c8dd345e-c202-4afd-8acc-56e5e71d1167",
+      "rows": 0,
+      "preparationMs": 11.5094,
+      "engineMs": 3.236543998355046,
+      "totalMs": 20.296,
+      "files": 1
+    },
+    {
+      "case": "Empty inputs",
+      "engine": "drill",
+      "datasetId": "8cc51d39-dfc2-4a84-aa72-8882ccd0dfe5",
+      "sourceDatasetId": "c8dd345e-c202-4afd-8acc-56e5e71d1167",
+      "rows": 0,
+      "preparationMs": 11.8412,
+      "engineMs": 151.6413770004874,
+      "totalMs": 169.3677,
+      "files": 1
+    },
+    {
+      "case": "10000 pairs",
+      "engine": "duckdb",
+      "datasetId": "245b44fd-7705-430e-9c05-cb98dbfa7063",
+      "sourceDatasetId": "245b44fd-7705-430e-9c05-cb98dbfa7063",
+      "rows": 10000,
+      "preparationMs": 47.7029,
+      "engineMs": 17.261700000000005,
+      "totalMs": 64.9646,
+      "files": 1
+    },
+    {
+      "case": "10000 pairs",
+      "engine": "spark",
+      "datasetId": "09acab4d-61e9-4d24-9e90-04d6aa070903",
+      "sourceDatasetId": "245b44fd-7705-430e-9c05-cb98dbfa7063",
+      "rows": 10000,
+      "preparationMs": 55.4766,
+      "engineMs": 604.9716699926648,
+      "totalMs": 671.6077,
+      "files": 4,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 32
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 34
+        }
+      ]
+    },
+    {
+      "case": "10000 pairs",
+      "engine": "datafusion",
+      "datasetId": "eafca1c6-e1c0-43e5-aa63-169d0e4728fa",
+      "sourceDatasetId": "245b44fd-7705-430e-9c05-cb98dbfa7063",
+      "rows": 10000,
+      "preparationMs": 50.2698,
+      "engineMs": 8.460914992610924,
+      "totalMs": 66.2745,
+      "files": 2
+    },
+    {
+      "case": "10000 pairs",
+      "engine": "drill",
+      "datasetId": "9f48c4ce-6e4f-4cc4-9b69-ee691dab13c2",
+      "sourceDatasetId": "245b44fd-7705-430e-9c05-cb98dbfa7063",
+      "rows": 10000,
+      "preparationMs": 55.3253,
+      "engineMs": 339.18600699689705,
+      "totalMs": 404.1103,
+      "files": 1
+    },
+    {
+      "case": "100000 pairs",
+      "engine": "duckdb",
+      "datasetId": "8a859c3f-8353-4a77-816b-c6679fc786e0",
+      "sourceDatasetId": "8a859c3f-8353-4a77-816b-c6679fc786e0",
+      "rows": 100000,
+      "preparationMs": 346.6295,
+      "engineMs": 135.0222,
+      "totalMs": 481.6517,
+      "files": 1
+    },
+    {
+      "case": "100000 pairs",
+      "engine": "spark",
+      "datasetId": "3ab7cb22-13de-4783-95ea-888421a4cabe",
+      "sourceDatasetId": "8a859c3f-8353-4a77-816b-c6679fc786e0",
+      "rows": 100000,
+      "preparationMs": 412.912,
+      "engineMs": 1456.5629930002615,
+      "totalMs": 1888.3594,
+      "files": 4,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 38
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 40
+        }
+      ]
+    },
+    {
+      "case": "100000 pairs",
+      "engine": "datafusion",
+      "datasetId": "67551037-1a55-43d3-8954-8ee9faa42176",
+      "sourceDatasetId": "8a859c3f-8353-4a77-816b-c6679fc786e0",
+      "rows": 100000,
+      "preparationMs": 431.7273,
+      "engineMs": 59.85901699750684,
+      "totalMs": 506.3501,
+      "files": 4
+    },
+    {
+      "case": "100000 pairs",
+      "engine": "drill",
+      "datasetId": "2eed654e-381c-45e1-b125-268ca4849189",
+      "sourceDatasetId": "8a859c3f-8353-4a77-816b-c6679fc786e0",
+      "rows": 100000,
+      "preparationMs": 424.5339,
+      "engineMs": 1179.9949400010519,
+      "totalMs": 1646.6078,
+      "files": 1
+    },
+    {
+      "case": "1000000 pairs",
+      "engine": "duckdb",
+      "datasetId": "dbef9c9a-4580-457f-b10a-09dae637d11f",
+      "sourceDatasetId": "dbef9c9a-4580-457f-b10a-09dae637d11f",
+      "rows": 1000000,
+      "preparationMs": 4102.5479,
+      "engineMs": 956.9658000000009,
+      "totalMs": 5059.5137,
+      "files": 1
+    },
+    {
+      "case": "1000000 pairs",
+      "engine": "spark",
+      "datasetId": "85b5c5f1-6853-4e2a-9877-2d8d02c4f7a0",
+      "sourceDatasetId": "dbef9c9a-4580-457f-b10a-09dae637d11f",
+      "rows": 1000000,
+      "preparationMs": 4563.7167,
+      "engineMs": 3744.5787519973237,
+      "totalMs": 8391.3612,
+      "files": 4,
+      "coldStart": false,
+      "workers": [
+        {
+          "id": "1",
+          "hostPort": "172.18.0.7:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 53
+        },
+        {
+          "id": "0",
+          "hostPort": "172.18.0.9:39002",
+          "isActive": true,
+          "totalCores": 1,
+          "completedTasks": 52
+        }
+      ]
+    },
+    {
+      "case": "1000000 pairs",
+      "engine": "datafusion",
+      "datasetId": "1eec1590-53fc-4b26-ba4d-ed706f1a2060",
+      "sourceDatasetId": "dbef9c9a-4580-457f-b10a-09dae637d11f",
+      "rows": 1000000,
+      "preparationMs": 4633.3884,
+      "engineMs": 363.71198200504296,
+      "totalMs": 5064.015,
+      "files": 4
+    },
+    {
+      "case": "1000000 pairs",
+      "engine": "drill",
+      "datasetId": "074475a3-1ac3-4132-bd73-8d43d6ac2679",
+      "sourceDatasetId": "dbef9c9a-4580-457f-b10a-09dae637d11f",
+      "rows": 1000000,
+      "preparationMs": 4521.2762,
+      "engineMs": 3926.1991449893685,
+      "totalMs": 8756.723,
+      "files": 1
+    }
+  ],
+  "note": "Functional validation runs on one physical host. Timings are single observations, not controlled multi-host benchmarks. Browser validation overlapped part of the run."
+}

@@ -1,10 +1,10 @@
-# WaferScope · DAC / DuckDB Data Workbench
+# WaferScope · Multi-engine Data Workbench
 
-**Oracle의 반도체 검사 데이터를 조회하고, DuckDB로 결합·필터링하고, 독립된 산점도로 탐색하는 통합 분석 애플리케이션입니다.**
+**Oracle의 반도체 검사 데이터를 조회하고, DuckDB·Spark·DataFusion·Drill로 결합·필터링하고, 독립된 산점도로 탐색하는 통합 분석 애플리케이션입니다.**
 
 .NET 10 조회·발행·변환·수신 검증·차트·포털 서비스와 React UI를 Kubernetes에 배포합니다. 분석 설정과 실행 이력은 PostgreSQL에 저장하며, 웹 차트와 PNG·SVG·독립 HTML 내보내기를 지원합니다. 1천·1만·10만·100만 건을 선택해 **샘플링 없이 전체 데이터**를 처리할 수 있습니다.
 
-[Kafka 스트리밍](docs/streaming.md) · [시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
+[분석 엔진 선택](docs/engines.md) · [Kafka 스트리밍](docs/streaming.md) · [시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
 
 ![WaferScope 운영 개요](docs/images/overview.png)
 
@@ -29,6 +29,7 @@
 | Analysis | Category/Legend 선택, 날짜·숫자·문자열 X, 숫자 Y, 줌·포인트 조회·확대, 요청 취소 |
 | 차트 옵션 | 포인트 크기, 컬럼 기반 라벨, 라벨 글자 크기, 겹침 방지 |
 | 성능 표시 | 조회·수신 / 현재 페이지 그리기 / 전체 표시 시간, 차트별 처리 시간 |
+| Engine selection | DuckDB / Spark / DataFusion / Drill 실제 실행, 동일 원본 재분석, 단계별 시간 |
 | Data streams | Kafka 실제 원본 발행, 두 소비자 그룹, 전체 DuckDB 변환, 시작·중지, 수신 상세, 결과 차트 |
 | Saved views | 설정·메모 저장, 고정, 검색, 직접 링크, 버전 기반 충돌 감지 |
 | API console | 고정 요청 프리셋, JSON 편집, 응답 표/JSON, 상태·실행 시간 |
@@ -45,7 +46,7 @@ flowchart TB
   subgraph cluster["Docker 위 kind Kubernetes · namespace dac"]
     portal["waferscope Pod<br/>.NET 10 BFF + React 정적 파일"]
     dac["dac-worker Pod<br/>.NET 10 · Oracle 조회"]
-    transform["data-transform-service Pod<br/>Kafka 수신 / DuckDB / 결과 API"]
+    transform["data-transform-service Pod<br/>Kafka 수신 / 엔진 선택 / 결과 API"]
     publisher["dac-publisher Pod<br/>주기적 원본 발행"]
     observer["stream-observer Pod<br/>독립 소비자 그룹"]
     subgraph chartpod["chart-worker Pod"]
@@ -57,6 +58,7 @@ flowchart TB
     oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
     postgres[("PostgreSQL 18<br/>Views / Runs / 스트림 상태·입력")]
     kafka[("Kafka · 실제 EDS / Defect")]
+    engines["Spark / DataFusion / Drill<br/>별도 실행 서비스"]
   end
   browser -->|"동일 출처 HTTP"| gateway
   gateway -->|"NodePort 30082"| portal
@@ -64,6 +66,7 @@ flowchart TB
   portal -->|"스트림 제어"| transform
   publisher -->|"원본 조회"| dac
   publisher -->|"실제 행"| kafka
+  transform <-->|"입력 Parquet / 결과 파일"| engines
   kafka --> transform
   kafka --> observer
   transform --> postgres
@@ -81,7 +84,7 @@ Oracle과 PostgreSQL은 클러스터 밖의 Compose 컨테이너와 영속 볼�
 
 ## 빠른 시작
 
-검증 환경은 **Linux x86-64 + Docker Engine + Docker Compose + kind + kubectl + Python 3**입니다. `kind`/`kubectl`은 PATH 또는 `~/.local/bin`에 있어야 합니다. 현재 Docker 사용자가 `docker info`를 실행할 수 있어야 합니다. Oracle XE 컨테이너 및 대량 렌더링을 고려해 메모리 16GB 이상과 충분한 디스크를 권장합니다. ARM/macOS 조합은 검증하지 않았습니다.
+검증 환경은 **Linux x86-64 + Docker Engine + Docker Compose + kind + kubectl + Python 3**입니다. `kind`/`kubectl`은 PATH 또는 `~/.local/bin`에 있어야 합니다. 현재 Docker 사용자가 `docker info`를 실행할 수 있어야 합니다. Oracle XE 컨테이너 및 대량 렌더링을 고려해 전체 엔진 구성은 메모리 32GB 이상과 충분한 디스크를 권장합니다. ARM/macOS 조합은 검증하지 않았습니다.
 
 ```bash
 git clone https://github.com/amuro33/dac-duckdb.git
@@ -95,7 +98,7 @@ cd dac-duckdb
 2. Oracle/PostgreSQL 컨테이너를 시작하고 readiness를 기다립니다.
 3. `dac` kind 클러스터 생성 및 DB 네트워크 연결을 확인합니다.
 4. 기본 EDS 312행·결함 464행과 별도 benchmark 100만 행을 준비합니다.
-5. Kafka와 DAC·Publisher·Transform·Observer·Chart API/renderer·Portal을 배포합니다.
+5. Spark master·worker 2개, DataFusion adapter, Drillbit과 Kafka를 시작하고 DAC·Publisher·Transform·Observer·Chart API/renderer·Portal을 배포합니다.
 6. 예제 분석 뷰를 PostgreSQL에 등록합니다.
 
 첫 실행은 이미지 다운로드와 Oracle 초기화 때문에 시간이 걸립니다. .NET SDK와 프런트 빌드 도구는 Docker 빌드 단계에서 사용하므로 실행만 할 때 호스트에 설치할 필요가 없습니다. `.env.example`은 설정 설명용이며 실제 비밀번호는 Git에 포함하지 않습니다.
@@ -119,9 +122,11 @@ cd dac-duckdb
 5. 포인트 크기를 바꿔 실행합니다. 데이터 재조회 없이 갱신되며 실제 표시 시간이 기록됩니다.
 6. 라벨 컬럼을 선택하고 PNG/SVG를 저장합니다. 뷰를 저장한 뒤 다시 열어 설정 복원을 확인합니다.
 7. **Data streams**에서 원본 규모와 주기를 정해 발행하고, 두 소비자의 수신 건수와 DuckDB 결과를 확인합니다. 완료된 결과는 `차트 열기`로 분석합니다.
-8. Category를 `선택 안 함`, 규모를 100만으로 지정해 한 차트에 전체 점을 그려 봅니다.
+8. Analysis의 원본 소스를 `EDS 검사`, Category를 `선택 안 함`, 규모를 100만으로 지정해 한 차트에 전체 점을 그려 봅니다.
 
 ![한 차트에 100만 점과 실제 처리 시간](docs/images/million-points.png)
+
+**엔진 비교:** Analysis에서 `EDS × Defect`를 선택하면 변환 엔진을 고를 수 있습니다. 결과가 준비된 후 엔진을 바꾸면 동일 원본을 재분석합니다. Spark는 현재 물리 서버 한 대의 워커 컨테이너 두 개이며, 실제 여러 머신에 걸친 성능 향상을 측정한 구성은 아닙니다. [구조·저장 계약·검증 결과](docs/engines.md).
 
 ## 데이터 처리의 정확한 의미
 
@@ -172,6 +177,7 @@ python3 scripts/portal-integration.py
 python3 scripts/benchmark-integration.py
 python3 scripts/full-data-export-check.py
 python3 scripts/streaming-integration.py   # 실제 Kafka, 두 소비자, 중복·장애 복구, 전체 결과 검증
+python3 scripts/engines-integration.py     # 네 엔진 × 네 규모, 전체 결과·NULL·중복·빈 입력 비교
 ```
 
 브라우저 검증용 Playwright는 별도 도구 디렉터리에 설치할 수 있습니다.
@@ -185,9 +191,10 @@ node scripts/chart-million-single.cjs
 node scripts/chart-options-browser.cjs
 node scripts/full-data-interaction.cjs
 node scripts/streaming-browser.cjs
+node scripts/engines-browser.cjs
 ```
 
-현재 로컬 검증: **.NET 161개**, **프런트 유닛 22개**, **Kafka 통합 13항목·스트림 브라우저 9항목** 통과. 기존 경로 검증은 실제 데이터 검사 42항목, 시간 표시/옵션/대량 상호작용/단일 백만 점 브라우저 검사 21항목 통과. 상세 결과와 범위는 [전체 데이터 검증](docs/full-data-validation.md), [차트 시간 검증](docs/chart-timing.md)을 참고하세요. `artifacts/`는 실행 시 생성되며 Git에서 제외합니다. 통합 테스트는 실제 실행 이력을 추가하고, 뷰 생성 테스트는 자신이 만든 레코드를 정리합니다.
+현재 로컬 검증: **.NET 186개**, **프런트 유닛 28개**, **Kafka 통합 13항목·스트림 브라우저 9항목** 통과. 기존 경로 검증은 실제 데이터 검사 42항목, 시간 표시/옵션/대량 상호작용/단일 백만 점 브라우저 검사 21항목 통과. 상세 결과와 범위는 [전체 데이터 검증](docs/full-data-validation.md), [차트 시간 검증](docs/chart-timing.md)을 참고하세요. `artifacts/`는 실행 시 생성되며 Git에서 제외합니다. 통합 테스트는 실제 실행 이력을 추가하고, 뷰 생성 테스트는 자신이 만든 레코드를 정리합니다.
 
 ## 소스 구조
 
@@ -196,7 +203,8 @@ src/
   Dac.Worker/       Oracle API · 호환 프록시 · 전체 데이터 페이징
   Dac.Contracts/    원본·변환 요청 공유 계약
   Data.Publisher/   실제 원본을 Kafka에 주기적으로 발행
-  Data.Transform/   Kafka 수신 · DuckDB 계산 · Parquet 결과 API
+  Data.Transform/   Kafka 수신 · 엔진 실행 조정 · Parquet 결과 API
+  Analytics.Engines/ Spark / DataFusion / Drill 실행 어댑터
   Streaming.Core/   이벤트 계약 · 영속 수신 · Kafka 클라이언트
   Chart.Worker/     데이터 API 클라이언트 · 중립 차트 모델 · 그룹핑
   Chart.Renderer/   ECharts SSR · Sharp PNG · 독립 HTML

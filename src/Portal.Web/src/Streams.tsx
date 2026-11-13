@@ -3,6 +3,8 @@ import { Play, Pause, RefreshCw, ArrowUpRight, Radio } from "lucide-react";
 import { data, fmt } from "./api";
 import { PageHeading, ErrorBox, Empty, Modal } from "./ui";
 import type { Config } from "./types";
+import { EnginePicker } from "./EnginePicker";
+import { engineNames, type Engine, type Execution } from "./engines";
 type Feed = {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ type Feed = {
     sampleSize: number | null;
     intervalSeconds: number;
     operation: string;
+    engine?: Engine;
   };
   lastError?: string;
 };
@@ -24,6 +27,9 @@ type Dataset = {
   resultRows: number | null;
   transformMs: number | null;
   error?: string;
+  config: { engine?: Engine };
+  inputDatasetId?: string;
+  execution?: Execution;
 };
 const statuses: Record<string, string> = {
   publishing: "발행 중",
@@ -47,6 +53,7 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
     [joinType, setJoinType] = useState("left"),
     [minYield, setMinYield] = useState(""),
     [severity, setSeverity] = useState("");
+  const [engine, setEngine] = useState<Engine>("duckdb");
   async function refresh(signal?: AbortSignal) {
     const [f, d, s] = await Promise.all([
       data("/api/streams/feeds", "GET", undefined, false, signal),
@@ -119,6 +126,9 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
     analyze({
       source: "transformed",
       datasetId: id,
+      engine: datasets.find((d) => d.id === id)?.config.engine ?? "duckdb",
+      datasetEngine:
+        datasets.find((d) => d.id === id)?.config.engine ?? "duckdb",
       category: "lot_id",
       legend: "product",
       x: "inspected_at",
@@ -144,7 +154,9 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
         }
       />
       <ErrorBox error={error} />
-      {status?.kafka&&!status.kafka.connected&&<ErrorBox error="Kafka에 연결하지 못했습니다. 발행·수신은 복구 후 재개됩니다."/>}
+      {status?.kafka && !status.kafka.connected && (
+        <ErrorBox error="Kafka에 연결하지 못했습니다. 발행·수신은 복구 후 재개됩니다." />
+      )}
       <div className="stream-flow">
         <span>Oracle · DAC</span>
         <i>→</i>
@@ -153,7 +165,7 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
           Kafka · 실제 레코드
         </span>
         <i>→</i>
-        <span>DuckDB 변환 / 독립 수신 검증</span>
+        <span>선택한 엔진으로 변환 / 독립 수신 검증</span>
         <i>→</i>
         <span>저장된 결과 · 차트</span>
       </div>
@@ -179,6 +191,7 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
           <span className="muted">주기적 전체 스냅샷 · 샘플링 없음</span>
         </div>
         <div className="stream-fields">
+          <EnginePicker value={engine} onChange={setEngine} disabled={busy} />
           <label>
             이름
             <input
@@ -277,6 +290,7 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
                 minYield: minYield === "" ? null : Number(minYield),
                 severity: severity || null,
                 enabled: true,
+                engine,
               })
             }
           >
@@ -315,6 +329,7 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
                   <tr key={f.id}>
                     <td>
                       <strong>{f.name}</strong>
+                      <small>{engineNames[f.config.engine ?? "duckdb"]}</small>
                       {f.lastError && (
                         <small className="stream-error">{f.lastError}</small>
                       )}
@@ -383,6 +398,10 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
                   <tr key={d.id} data-dataset-id={d.id} data-status={d.status}>
                     <td>
                       <strong>{d.name}</strong>
+                      <small>
+                        {engineNames[d.config.engine ?? "duckdb"]}
+                        {d.inputDatasetId ? " · 같은 원본 재분석" : ""}
+                      </small>
                       <small>
                         {d.id.slice(0, 8)} ·{" "}
                         {new Date(d.createdAt).toLocaleString()}

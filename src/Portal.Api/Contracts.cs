@@ -13,12 +13,12 @@ public static class Guard
         var path = r.Path.Split('?')[0];
         if (path.StartsWith("/api/streams/"))
         {
-            var exact = r.Method == "GET" && path is "/api/streams/status" or "/api/streams/feeds" or "/api/streams/datasets";
+            var exact = r.Method == "GET" && path is "/api/streams/status" or "/api/streams/feeds" or "/api/streams/datasets" or "/api/streams/engines";
             var create = r.Method == "POST" && path == "/api/streams/feeds";
             var parts = path.Split('/');
             var entity = parts.Length >= 5 && Guid.TryParse(parts[4], out _) && (
                 parts[3] == "feeds" && parts.Length == 6 && r.Method == "POST" && parts[5] is "start" or "stop" ||
-                parts[3] == "datasets" && (parts.Length == 5 && r.Method == "GET" || parts.Length == 6 && (parts[5] == "rows" && r.Method == "GET" || parts[5] == "retry" && r.Method == "POST")));
+                parts[3] == "datasets" && (parts.Length == 5 && r.Method == "GET" || parts.Length == 6 && (parts[5] == "rows" && r.Method == "GET" || parts[5] is "retry" or "analyze" && r.Method == "POST")));
             if (exact || create || entity)
                 return "transform";
             throw new ArgumentException("Unregistered stream endpoint");
@@ -48,6 +48,9 @@ public static class Guard
             throw new ArgumentException("Invalid source");
         if (c.GetProperty("source").GetString() == "transformed" && (!c.TryGetProperty("datasetId", out var dataset) || dataset.ValueKind != JsonValueKind.String || !Guid.TryParse(dataset.GetString(), out var datasetId) || datasetId == Guid.Empty))
             throw new ArgumentException("Valid datasetId required for transformed source");
+        foreach (var name in new[] { "engine", "datasetEngine" })
+            if (c.TryGetProperty(name, out var engine) && engine.ValueKind != JsonValueKind.Null && (engine.ValueKind != JsonValueKind.String || engine.GetString() is not ("duckdb" or "spark" or "datafusion" or "drill")))
+                throw new ArgumentException("Invalid engine");
         if (c.GetProperty("xType").GetString() is not ("string" or "number" or "date"))
             throw new ArgumentException("Invalid X axis type");
         foreach (var field in new[] { "category", "legend", "lotId", "labelColumn" })

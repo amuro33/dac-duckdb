@@ -275,7 +275,6 @@ export function Analysis({
   return (
     <>
       <PageHeading
-        eyebrow="ANALYSIS STUDIO"
         title="웨이퍼 분석"
         description="컬럼을 선택하고 분석을 실행하세요. 설정과 결과를 명확히 구분합니다."
         actions={

@@ -140,7 +140,6 @@ export function Streams({ analyze }: { analyze: (c: Config) => void }) {
   return (
     <>
       <PageHeading
-        eyebrow="DATA PIPELINE"
         title="데이터 스트림"
         description="Oracle 원본을 Kafka로 전달하고, 독립된 두 서비스가 구독합니다. 완료된 변환 결과를 차트에서 열 수 있습니다."
         actions={

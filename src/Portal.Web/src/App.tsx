@@ -140,7 +140,7 @@ export default function App() {
         <a className="logo" href="#overview">
           <img src="/favicon.svg" alt="" />
           <span>
-            WaferScope<small>DATA WORKSPACE</small>
+            WaferScope<small>Data workbench</small>
           </span>
         </a>
         <div className="workspace-label">
@@ -149,7 +149,6 @@ export default function App() {
             Engineering lab<small>Local workspace</small>
           </span>
         </div>
-        <div className="nav-label">WORKSPACE</div>
         <nav>
           {pages.map(([id, en, ko, Icon]) => (
             <a
@@ -160,11 +159,7 @@ export default function App() {
               aria-current={page === id ? "page" : undefined}
             >
               <Icon size={18} />
-              <span>
-                {en}
-                <small>{ko}</small>
-              </span>
-              {page === id && <span className="active-mark" />}
+              <span>{en}</span>
             </a>
           ))}
         </nav>

@@ -66,3 +66,18 @@ The README lists the unit, integration and browser scripts. Each browser script 
 Generated evidence lives under `artifacts/`. Benchmark timings describe the local hardware and the explicitly documented dataset size;
 they do not establish an SLO or distributed-load capacity. Integration scripts create real execution history,
 including intentional errors, so dashboard error counts include validation runs.
+
+
+## Kafka / transform 운영
+
+```bash
+docker compose -f compose.kafka.yaml ps
+docker compose -f compose.kafka.yaml exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka-broker:9092 --all-groups --describe
+KUBECONFIG="$PWD/.kube/config" ~/.local/bin/kubectl logs -n dac deployment/dac-publisher --tail=100
+KUBECONFIG="$PWD/.kube/config" ~/.local/bin/kubectl logs -n dac deployment/data-transform-service --tail=100
+KUBECONFIG="$PWD/.kube/config" ~/.local/bin/kubectl logs -n dac deployment/stream-observer --tail=100
+```
+
+Data streams 화면에서 feed를 중지하면 신규 발행이 멈추고 진행 중인 스냅샷은 끝까지 전달합니다. consumer 중지는 다른 그룹의 진행을 막지 않으며, 재시작하면 보존된 Kafka offset부터 이어받습니다. 격리 메시지는 PostgreSQL `stream_failures`, 완료 발행 대기는 `stream_outbox`에서 확인합니다. 동기 변환 502는 data-transform-service의 상태도 확인하세요.
+
+결과 PVC는 kind 노드 내부 hostPath입니다. Pod 재시작은 보존되지만 클러스터 삭제 전에 결과 파일을 별도 백업해야 합니다. PostgreSQL 입력·메타데이터와 결과 파일을 함께 복구해야 합니다. Kafka Compose 볼륨 삭제도 이벤트 로그를 지우므로 재시작 절차로 사용하지 마세요. 자세한 범위는 [스트리밍 설계](streaming.md)에 있습니다.

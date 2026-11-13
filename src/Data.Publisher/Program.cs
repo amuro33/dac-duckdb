@@ -1,0 +1,12 @@
+using Npgsql;
+using Streaming.Core;
+using Data.Publisher;
+var builder=WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton(NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("Postgres")??throw new InvalidOperationException("Postgres required")));
+builder.Services.AddSingleton<StreamStore>();builder.Services.AddSingleton<KafkaBus>();
+builder.Services.AddHttpClient("dac",c=>{c.BaseAddress=new Uri(builder.Configuration["DataApiBaseUrl"]??"http://dac-worker:8080/");c.Timeout=TimeSpan.FromSeconds(180);});
+builder.Services.AddHostedService<Publisher>();
+var app=builder.Build();await app.Services.GetRequiredService<StreamStore>().Init();await app.Services.GetRequiredService<KafkaBus>().Init();
+app.MapGet("/health/live",()=>new{status="ok",service="dac-publisher"});
+app.MapGet("/health/ready",(StreamStore store)=>store.Query("SELECT role,updated_at,error FROM stream_heartbeats WHERE role='publisher'"));
+app.Run();

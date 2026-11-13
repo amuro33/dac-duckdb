@@ -6,6 +6,7 @@ for tool in docker kind kubectl python3; do command -v "$tool" >/dev/null || { e
 python3 scripts/init-env.py
 ./start.sh
 ./scripts/deploy.sh
+./scripts/deploy-streaming.sh
 ./scripts/deploy-chart.sh
 ./scripts/deploy-portal.sh
 python3 scripts/seed-portal-views.py

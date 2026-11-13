@@ -1,36 +1,50 @@
 # 시스템 설계와 데이터 흐름
 
+**Kafka 확장 적용:** 원본 조회와 DuckDB 변환을 별도 Pod로 분리했습니다. 실제 행 발행·독립 소비자 그룹·영속 수신·Parquet 결과의 최신 구조는 [Kafka 스트리밍 설계](streaming.md)를 참고하세요. 아래 대용량 직접 조회 경로도 계속 지원합니다.
+
 이 문서는 실행 중인 구현을 기준으로 작성했습니다. 아래 다이어그램에서 **Pod / 컨테이너 / DB 서버 / 인메모리 엔진**을 구분합니다. Mermaid 원본과 확대 가능한 SVG는 [diagrams](diagrams)에 있으며 아래 Mermaid 블록은 GitHub에서 직접 렌더링됩니다.
 
 ## 1. 배포 구조와 네트워크 경계
 
 ```mermaid
-flowchart LR
-  user["Browser<br/>React · ECharts Canvas"]
-  gateway["nginx gateway<br/>8082 → NodePort 30082"]
-  subgraph kind["kind Kubernetes · namespace dac"]
-    bff["waferscope Pod<br/>.NET 10 BFF + React 앱"]
-    subgraph cp["chart-worker Pod"]
-      chart["Chart API<br/>DataApiClient / ChartBuilder"]
-      render["Renderer sidecar · 8091<br/>ECharts SSR / Sharp / 한글 폰트"]
-    end
-    subgraph dp["dac-worker Pod"]
-      dac["Data API<br/>Oracle 조회 / 전체 데이터 페이징"]
-      duck["DuckDB · 인메모리<br/>join / merge / filter"]
+flowchart TB
+  browser["Browser · React / TypeScript<br/>ECharts Canvas · 독립 차트 DOM"]
+  gateway["nginx gateway<br/>localhost:8082"]
+  subgraph cluster["Docker 위 kind Kubernetes · namespace dac"]
+    portal["waferscope Pod<br/>.NET 10 BFF + React 정적 파일"]
+    dac["dac-worker Pod<br/>.NET 10 · Oracle 조회"]
+    transform["data-transform-service Pod<br/>Kafka 수신 / DuckDB / 결과 API"]
+    publisher["dac-publisher Pod<br/>주기적 원본 발행"]
+    result[("결과 PVC · Parquet<br/>kind 노드 hostPath")]
+    observer["stream-observer Pod<br/>독립 소비자 그룹"]
+    subgraph chartpod["chart-worker Pod"]
+      chart[".NET 10 · 행 변환 / Category·Legend 그룹핑"]
+      renderer["Node.js sidecar · localhost:8091<br/>ECharts SSR + Sharp + 한글 폰트"]
     end
   end
-  subgraph compose["Docker Compose · 영속 볼륨"]
+  subgraph databases["Docker Compose · Kubernetes 외부"]
     oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
-    pg[("PostgreSQL 18<br/>Views / Runs")]
+    postgres[("PostgreSQL 18<br/>Views / Runs / 스트림 상태·입력")]
+    kafka[("Kafka · 실제 EDS / Defect")]
   end
-  user --> gateway --> bff
-  bff -->|"차트 요청"| chart
-  bff -->|"데이터 / 변환 요청"| dac
-  chart -->|"HTTP 데이터 조회"| dac
-  chart -->|"localhost HTTP"| render
-  dac -->|"요청별 계산"| duck
+  browser -->|"동일 출처 HTTP"| gateway
+  gateway -->|"NodePort 30082"| portal
+  portal -->|"조회"| dac
+  portal -->|"스트림 제어"| transform
+  publisher -->|"원본 조회"| dac
+  publisher -->|"실제 행"| kafka
+  kafka --> transform
+  kafka --> observer
+  transform --> postgres
+  transform --> result
+  publisher --> postgres
+  observer --> postgres
+  chart -->|"변환 결과 조회"| transform
+  portal -->|"차트 / 내보내기"| chart
+  chart -->|"HTTP 데이터 API"| dac
+  chart -->|"이미지 / HTML"| renderer
   dac -->|"ODP.NET"| oracle
-  bff -->|"Npgsql"| pg
+  portal -->|"Npgsql"| postgres
 ```
 
 Oracle/PostgreSQL은 Kubernetes 외부의 Compose 서비스이며 kind 노드를 해당 Docker 네트워크에 연결합니다. renderer는 chart Pod 안의 sidecar이고 외부 Service를 따로 두지 않습니다.
@@ -40,7 +54,7 @@ Oracle/PostgreSQL은 Kubernetes 외부의 Compose 서비스이며 kind 노드를
 | DAC 진단 콘솔 | localhost:8080 → NodePort 30080 |
 | Chart Lab | localhost:8081 → nginx → NodePort 30081 |
 | dac-oracle Secret | DAC 환경 변수에 연결 문자열 주입 |
-| portal-postgres Secret | BFF 환경 변수에 연결 문자열 주입 |
+| portal-postgres Secret | BFF·발행·변환·수신 검증 서비스에 연결 문자열 주입 |
 | oracle-data / postgres-data | Compose named volume; Pod 재시작과 별개로 데이터 유지 |
 
 ## 2. 대용량 차트 요청 시퀀스
@@ -179,16 +193,13 @@ erDiagram
 
 ## Service boundaries
 
-The browser speaks only to the WaferScope BFF. Its API credentials and internal service addresses are never
+The browser speaks only to the WaferScope BFF. Streaming control endpoints are allowlisted and routed to data-transform-service. Its API credentials and internal service addresses are never
 sent to the browser. The BFF forwards only registered DAC/chart endpoints; arbitrary upstream hosts, methods,
 and administration endpoints are rejected. Image exports have their own validated endpoint.
 
-`dac-worker` owns data access. Oracle provides inspection/defect data, while a request-local DuckDB instance
-performs join, vertical UNION ALL merge, and filtering of the two data API responses. This transform path
-is intentionally bounded to 1,000 source rows and rejects a full-sized snapshot rather than silently joining
-truncated data. It is not a million-row join benchmark.
+`dac-worker` owns Oracle data access. DuckDB now runs in `data-transform-service`. The compatibility endpoint forwards to that service, which performs join, vertical UNION ALL merge and filtering. The Kafka path consumes complete durable batches and writes reusable Parquet datasets; one million rows from each source were joined and all result IDs verified. Only the legacy synchronous compatibility path is bounded to 1,000 source rows and rejects a full-sized snapshot rather than silently joining truncated data.
 
-`chart-worker` calls DAC over HTTP and transforms rows into an ECharts-independent model:
+`chart-worker` calls DAC for direct sources and data-transform-service for a persisted transformed dataset over HTTP and transforms rows into an ECharts-independent model:
 
 ```
 ScatterSpec
@@ -300,7 +311,7 @@ in the modular web bundle. The UI preserves draft/applied state semantics. Point
 | 그룹핑 | 타입을 포함한 키, NULL 그룹 구분, 중복 포인트 유지, 숫자/날짜 전역 정렬 | `Chart.Worker/ChartBuilder.cs` |
 | 차트 건수 | sourceRows = plottedRows + skippedRows, sampledOutRows = 0 | `Chart.Worker/ChartBuilder.cs` |
 | 그룹 수 | Category 최대 50, Category당 Legend 최대 50. 초과는 입력 오류 | `Chart.Worker/ChartBuilder.cs` |
-| 기본 DuckDB 변환 | 소스가 1천 행 경계에 닿으면 잘린 snapshot을 결합하지 않고 거부 | `Dac.Worker/ApiDatasetSource.cs` |
+| 기본 DuckDB 변환 | 소스가 1천 행 경계에 닿으면 잘린 snapshot을 결합하지 않고 거부 | `Data.Transform/ApiDatasetSource.cs` |
 | 저장 뷰 | UPDATE/DELETE의 expected version 불일치는 409 | `Portal.Api/Store.cs` |
 | 브라우저 측정 | 현재 batch에 속하는 현재 페이지 차트만 집계, 실패를 성공 시간으로 표시하지 않음 | `Portal.Web/src/chartPerformance.ts` |
 
@@ -319,11 +330,11 @@ in the modular web bundle. The UI preserves draft/applied state semantics. Point
 | 관점 | DuckDB | Kafka |
 | --- | --- | --- |
 | 핵심 역할 | 데이터를 SQL로 조회·조인·필터·집계하는 분석 엔진 | 이벤트를 수신·보관하고 여러 소비자에게 전달하는 로그 기반 시스템 |
-| 현재 앱에 대입 | EDS/결함 API 결과를 받아 요청 안에서 계산 | 검사 결과 발생 이벤트를 여러 서비스가 지속적으로 소비하는 경우에 사용 가능 |
+| 현재 앱에 대입 | 별도 변환 서비스에서 EDS/결함을 조인·필터링 | 실제 원본 행을 두 독립 소비자 그룹에 지속 전달 |
 | 처리 단위 | 요청 시 확보한 테이블/데이터셋 | 시간에 따라 계속 들어오는 이벤트 스트림 |
 | 조인 | SQL JOIN으로 두 테이블 연결 | Kafka 자체 대신 Kafka Streams/Flink 등의 처리 계층에서 구성 |
 | 주요 설계 고려 | 데이터 크기, 쿼리 비용, 메모리, snapshot 일관성 | 파티션 키, 순서, 소비 위치, 재처리, 중복·지연 이벤트 |
 
-현재는 요청형 분석이므로 DuckDB를 사용합니다. Kafka는 설치되어 있지 않으며 현재 다이어그램에도 구현된 서비스로 표시하지 않았습니다. Kafka를 도입해도 분석 계산이 필요하면 DuckDB 같은 엔진과 함께 쓸 수 있습니다.
+DuckDB는 계산을 담당하고 Kafka는 실제 원본 행을 전달합니다. 요청형 직접 분석과 주기적 Kafka 분석을 함께 지원합니다. Kafka를 실제로 도입했으며 [스트리밍 배포도](streaming.md)에 현재 구현을 표시했습니다. Kafka가 전달·보존을 담당하고 DuckDB가 데이터셋의 계산을 담당합니다.
 
-예를 들어 검사기 → Kafka → 저장 소비자/이상 탐지 소비자/대시보드 소비자로 확장할 수 있습니다. 두 스트림을 조인하려면 Lot+Wafer 키뿐 아니라 이벤트 시간, 허용 대기 구간, 늦게 도착한 데이터, 재처리 시 중복 반영 방식을 정의해야 합니다. 이는 현재의 유한한 API 응답을 조인하는 작업과 운영 의미가 다릅니다.
+예를 들어 검사기 → Kafka → 저장 소비자/이상 탐지 소비자/대시보드 소비자로 확장할 수 있습니다. 두 스트림을 조인하려면 Lot+Wafer 키뿐 아니라 이벤트 시간, 허용 대기 구간, 늦게 도착한 데이터, 재처리 시 중복 반영 방식을 정의해야 합니다. 현재 구현은 완전성이 검증된 유한한 스냅샷을 조인합니다. 이벤트 시간 기반의 무한 스트림 조인은 별도 설계 범위입니다.

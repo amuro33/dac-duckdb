@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import {
   LayoutDashboard,
+  Radio,
   Database,
   ChartScatter,
   Bookmark,
@@ -14,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { Streams } from "./Streams";
 import { Overview } from "./Overview";
 import { Views } from "./Views";
 import { DataExplorer } from "./DataExplorer";
@@ -29,6 +31,7 @@ const pages = [
   ["overview", "Overview", "운영 개요", LayoutDashboard],
   ["data", "Datasets", "데이터 탐색", Database],
   ["analysis", "Analysis", "분석 스튜디오", ChartScatter],
+  ["streams", "Data streams", "데이터 스트림", Radio],
   ["views", "Saved views", "저장된 뷰", Bookmark],
   ["console", "API console", "API 콘솔", Terminal],
   ["activity", "Activity", "실행 이력", History],
@@ -56,14 +59,33 @@ export default function App() {
   function analyze(c: Config, id?: string) {
     setConfig(c);
     setSession((s) => s + 1);
-    navigate("analysis" + (id ? "?view=" + id : ""));
+    navigate(
+      "analysis" +
+        (id ? "?view=" + id : c.datasetId ? "?dataset=" + c.datasetId : ""),
+    );
     setPage("analysis");
   }
   useEffect(() => {
     async function hash() {
       const [route, params] = location.hash.slice(1).split("?");
       setPage(pages.some((p) => p[0] === route) ? route : "overview");
-      const id = new URLSearchParams(params).get("view");
+      const query = new URLSearchParams(params);
+      const dataset = query.get("dataset");
+      if (route === "analysis" && dataset) {
+        setConfig({
+          source: "transformed",
+          datasetId: dataset,
+          category: "lot_id",
+          legend: "product",
+          x: "inspected_at",
+          y: "yield_pct",
+          xType: "date",
+          lotId: null,
+          sampleSize: null,
+        });
+        setSession((s) => s + 1);
+      }
+      const id = query.get("view");
       if (route === "analysis" && id) {
         try {
           const views = await json<View[]>("/api/workspace/views");
@@ -198,7 +220,10 @@ export default function App() {
               <Analysis key={session} start={config} notify={setToast} />
             </Suspense>
           )}{" "}
-          {page === "views" && <Views analyze={analyze} notify={setToast} />}{" "}
+          {page === "streams" && <Streams analyze={analyze} />}
+          {page === "views" && (
+            <Views analyze={analyze} notify={setToast} />
+          )}{" "}
           {page === "console" && <Console key={session} start={consoleStart} />}{" "}
           {page === "activity" && <Activity replay={replay} />}
           <footer className="app-footer">
@@ -254,8 +279,8 @@ export default function App() {
           <ul>
             <li>분석 설정은 ‘분석 실행’을 눌러 적용합니다.</li>
             <li>
-              1천·1만·10만·100만 행 모두 선택 범위 전체를 처리합니다.
-              Lot 필터와 X/Y 결측값을 제외한 모든 행을 차트에 전달합니다.
+              1천·1만·10만·100만 행 모두 선택 범위 전체를 처리합니다. Lot 필터와
+              X/Y 결측값을 제외한 모든 행을 차트에 전달합니다.
             </li>
             <li>
               저장된 뷰는 설정을 저장합니다. 열면 현재 원본을 다시 조회합니다.

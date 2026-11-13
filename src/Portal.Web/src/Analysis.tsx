@@ -104,6 +104,7 @@ export function Analysis({
     const a = new AbortController();
     setMetaBusy(true);
     const q = new URLSearchParams({ source: draft.source });
+    if (draft.datasetId) q.set("datasetId", draft.datasetId);
     if (draft.sampleSize) q.set("sampleSize", String(draft.sampleSize));
     data("/api/chart/columns?" + q, "GET", undefined, false, a.signal)
       .then((r) => {
@@ -120,7 +121,7 @@ export function Analysis({
         if (!a.signal.aborted) setMetaBusy(false);
       });
     return () => a.abort();
-  }, [draft.source, draft.sampleSize]);
+  }, [draft.source, draft.sampleSize, draft.datasetId]);
   async function run(config = draft) {
     const actionStartedAt = performance.now();
     abort.current?.abort();
@@ -171,6 +172,7 @@ export function Analysis({
     setDraft({
       ...draft,
       source,
+      datasetId: null,
       sampleSize,
       lotId: null,
       category: joined ? "lot_id" : "lotId",
@@ -302,12 +304,16 @@ export function Analysis({
               <option value="eds">EDS 검사</option>
               <option value="defects">결함 이력</option>
               <option value="joined">EDS × Defect</option>
+              {draft.source === "transformed" && (
+                <option value="transformed">Kafka · 변환 결과</option>
+              )}
             </select>
           </label>
           <label>
             데이터 규모
             <select
               aria-label="데이터 규모"
+              disabled={draft.source === "transformed"}
               value={draft.sampleSize ?? ""}
               onChange={(e) =>
                 chooseSource(
@@ -316,7 +322,11 @@ export function Analysis({
                 )
               }
             >
-              <option value="">기본 Oracle 데이터</option>
+              <option value="">
+                {draft.source === "transformed"
+                  ? "저장된 전체 변환 결과"
+                  : "기본 Oracle 데이터"}
+              </option>
               {[1000, 10000, 100000, 1000000].map((n) => (
                 <option value={n} key={n}>
                   {fmt(n)}행 · 테스트 데이터
@@ -328,6 +338,7 @@ export function Analysis({
             Lot 필터
             <input
               aria-label="분석 Lot 필터"
+              disabled={draft.source === "transformed"}
               placeholder={draft.sampleSize ? "BENCH-001" : "LOT-101"}
               value={draft.lotId ?? ""}
               onChange={(e) =>
@@ -335,6 +346,13 @@ export function Analysis({
               }
             />
           </label>
+          {draft.datasetId && (
+            <p className="mapping-note">
+              고정된 변환 데이터셋
+              <br />
+              {draft.datasetId}
+            </p>
+          )}
           <div className="section-divider">GROUPING</div>
           {select("category", "Category · 독립 차트", true)}
           {select("legend", "Legend · 시리즈", true)}

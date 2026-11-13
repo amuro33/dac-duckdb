@@ -1,5 +1,6 @@
 using DuckDB.NET.Data;
-namespace Dac.Worker;
+using Dac.Worker;
+namespace Data.Transform;
 public sealed class TransformEngine {
  public List<Dictionary<string,object?>> Execute(IReadOnlyList<Eds> eds,IReadOnlyList<Defect> defects,TransformRequest r) {
   Validation.Transform(r);

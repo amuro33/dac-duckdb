@@ -1,6 +1,7 @@
 using Dac.Worker;
+using Data.Transform;
 using Xunit;
-namespace Dac.Worker.Tests;
+namespace Data.Transform.Tests;
 public class TransformTests {
  readonly Eds[] eds=[new("L1","W1","DRAM",100,95,95),new("L1","W2","DRAM",100,90,90),new("L2","W1","NAND",100,99,99)];
  readonly Defect[] defects=[new("D1","L1","W1","SCRATCH","HIGH",2),new("D2","L1","W1","PARTICLE","LOW",1),new("D3","L3","W1","SCRATCH","HIGH",5)];

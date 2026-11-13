@@ -11,6 +11,18 @@ public static class Guard
         if (string.IsNullOrWhiteSpace(r.Path) || r.Path.Length > 2048 || !r.Path.StartsWith("/api/") || r.Path.Contains('#') || r.Path.Contains('\\'))
             throw new ArgumentException("Invalid API path");
         var path = r.Path.Split('?')[0];
+        if (path.StartsWith("/api/streams/"))
+        {
+            var exact = r.Method == "GET" && path is "/api/streams/status" or "/api/streams/feeds" or "/api/streams/datasets";
+            var create = r.Method == "POST" && path == "/api/streams/feeds";
+            var parts = path.Split('/');
+            var entity = parts.Length >= 5 && Guid.TryParse(parts[4], out _) && (
+                parts[3] == "feeds" && parts.Length == 6 && r.Method == "POST" && parts[5] is "start" or "stop" ||
+                parts[3] == "datasets" && (parts.Length == 5 && r.Method == "GET" || parts.Length == 6 && (parts[5] == "rows" && r.Method == "GET" || parts[5] == "retry" && r.Method == "POST")));
+            if (exact || create || entity)
+                return "transform";
+            throw new ArgumentException("Unregistered stream endpoint");
+        }
         var gets = new[] { "/api/dac/get_eds_data", "/api/dac/get_defect_data", "/api/dac/lots", "/api/dac/summary", "/api/dac/chart_samples", "/api/chart/columns" };
         var posts = new[] { "/api/dac/transform", "/api/chart/scatter" };
         if (!(r.Method == "GET" && gets.Contains(path) || r.Method == "POST" && posts.Contains(path)))
@@ -30,15 +42,17 @@ public static class Guard
         if (c.ValueKind != JsonValueKind.Object || c.GetRawText().Length > 8000)
             throw new ArgumentException("Invalid chart configuration");
         foreach (var field in new[] { "source", "x", "y", "xType" })
-        if (!c.TryGetProperty(field, out var v) || v.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(v.GetString()) || v.GetString()!.Length > 80)
-            throw new ArgumentException("Missing or invalid " + field);
-        if (c.GetProperty("source").GetString() is not ("eds" or "defects" or "joined"))
+            if (!c.TryGetProperty(field, out var v) || v.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(v.GetString()) || v.GetString()!.Length > 80)
+                throw new ArgumentException("Missing or invalid " + field);
+        if (c.GetProperty("source").GetString() is not ("eds" or "defects" or "joined" or "transformed"))
             throw new ArgumentException("Invalid source");
+        if (c.GetProperty("source").GetString() == "transformed" && (!c.TryGetProperty("datasetId", out var dataset) || dataset.ValueKind != JsonValueKind.String || !Guid.TryParse(dataset.GetString(), out var datasetId) || datasetId == Guid.Empty))
+            throw new ArgumentException("Valid datasetId required for transformed source");
         if (c.GetProperty("xType").GetString() is not ("string" or "number" or "date"))
             throw new ArgumentException("Invalid X axis type");
         foreach (var field in new[] { "category", "legend", "lotId", "labelColumn" })
-        if (c.TryGetProperty(field, out var v) && v.ValueKind != JsonValueKind.Null && (v.ValueKind != JsonValueKind.String || v.GetString()!.Length > 80))
-            throw new ArgumentException("Invalid " + field);
+            if (c.TryGetProperty(field, out var v) && v.ValueKind != JsonValueKind.Null && (v.ValueKind != JsonValueKind.String || v.GetString()!.Length > 80))
+                throw new ArgumentException("Invalid " + field);
         if (c.TryGetProperty("pointSize", out var pointSize) && pointSize.ValueKind != JsonValueKind.Null && (pointSize.ValueKind != JsonValueKind.Number || !pointSize.TryGetDouble(out var sizeValue) || !double.IsFinite(sizeValue) || sizeValue < 2 || sizeValue > 20))
             throw new ArgumentException("pointSize must be between 2 and 20 pixels");
         if (c.TryGetProperty("showLabels", out var showLabels) && showLabels.ValueKind is not (JsonValueKind.True or JsonValueKind.False))

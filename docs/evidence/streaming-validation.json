@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-13",
+  "dotnet": {
+    "passed": 161,
+    "projects": {
+      "Dac.Worker.Tests": 21,
+      "Chart.Worker.Tests": 61,
+      "Portal.Api.Tests": 36,
+      "Data.Transform.Tests": 43
+    }
+  },
+  "frontend": {
+    "passed": 22
+  },
+  "legacyPortalIntegration": {
+    "passed": 23
+  },
+  "streamingIntegration": "streaming-integration.json",
+  "streamingBrowser": "streaming-browser.json",
+  "millionTransformedChart": "streaming-million-chart.json"
+}

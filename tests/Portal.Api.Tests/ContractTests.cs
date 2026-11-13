@@ -42,3 +42,20 @@ public class ContractTests
         Assert.Throws<ArgumentException>(() => Guard.Config(doc.RootElement));
     }
 }
+
+public class StreamingRoutesTests
+{
+    [Xunit.Theory]
+    [Xunit.InlineData("GET", "/api/streams/status")]
+    [Xunit.InlineData("GET", "/api/streams/feeds")]
+    [Xunit.InlineData("POST", "/api/streams/feeds")]
+    [Xunit.InlineData("GET", "/api/streams/datasets/11111111-1111-1111-1111-111111111111/rows?limit=1000")]
+    [Xunit.InlineData("POST", "/api/streams/feeds/11111111-1111-1111-1111-111111111111/stop")]
+    public void ExplicitStreamRoutesAllowed(string method, string path) => Xunit.Assert.Equal("transform", Portal.Api.Guard.Target(new(path, method)));
+    [Xunit.Theory]
+    [Xunit.InlineData("DELETE", "/api/streams/feeds")]
+    [Xunit.InlineData("POST", "/api/streams/datasets")]
+    [Xunit.InlineData("GET", "/api/streams/datasets/not-a-guid/rows")]
+    [Xunit.InlineData("POST", "/api/streams/feeds/11111111-1111-1111-1111-111111111111/delete")]
+    public void UnregisteredRoutesRejected(string method, string path) => Xunit.Assert.Throws<ArgumentException>(() => Portal.Api.Guard.Target(new(path, method)));
+}

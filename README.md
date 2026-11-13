@@ -2,9 +2,9 @@
 
 **Oracle의 반도체 검사 데이터를 조회하고, DuckDB로 결합·필터링하고, 독립된 산점도로 탐색하는 통합 분석 애플리케이션입니다.**
 
-.NET 10 서비스 세 개와 React UI를 Kubernetes에 배포합니다. 분석 설정과 실행 이력은 PostgreSQL에 저장하며, 웹 차트와 PNG·SVG·독립 HTML 내보내기를 지원합니다. 1천·1만·10만·100만 건을 선택해 **샘플링 없이 전체 데이터**를 처리할 수 있습니다.
+.NET 10 조회·발행·변환·수신 검증·차트·포털 서비스와 React UI를 Kubernetes에 배포합니다. 분석 설정과 실행 이력은 PostgreSQL에 저장하며, 웹 차트와 PNG·SVG·독립 HTML 내보내기를 지원합니다. 1천·1만·10만·100만 건을 선택해 **샘플링 없이 전체 데이터**를 처리할 수 있습니다.
 
-[시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
+[Kafka 스트리밍](docs/streaming.md) · [시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
 
 ![WaferScope 운영 개요](docs/images/overview.png)
 
@@ -29,6 +29,7 @@
 | Analysis | Category/Legend 선택, 날짜·숫자·문자열 X, 숫자 Y, 줌·포인트 조회·확대, 요청 취소 |
 | 차트 옵션 | 포인트 크기, 컬럼 기반 라벨, 라벨 글자 크기, 겹침 방지 |
 | 성능 표시 | 조회·수신 / 현재 페이지 그리기 / 전체 표시 시간, 차트별 처리 시간 |
+| Data streams | Kafka 실제 원본 발행, 두 소비자 그룹, 전체 DuckDB 변환, 시작·중지, 수신 상세, 결과 차트 |
 | Saved views | 설정·메모 저장, 고정, 검색, 직접 링크, 버전 기반 충돌 감지 |
 | API console | 고정 요청 프리셋, JSON 편집, 응답 표/JSON, 상태·실행 시간 |
 | Activity | 실행 성공·실패 이력, 요청 설정, 재실행, 상태 필터 |
@@ -43,7 +44,10 @@ flowchart TB
   gateway["nginx gateway<br/>localhost:8082"]
   subgraph cluster["Docker 위 kind Kubernetes · namespace dac"]
     portal["waferscope Pod<br/>.NET 10 BFF + React 정적 파일"]
-    dac["dac-worker Pod<br/>.NET 10 · Oracle 조회 / DuckDB 변환"]
+    dac["dac-worker Pod<br/>.NET 10 · Oracle 조회"]
+    transform["data-transform-service Pod<br/>Kafka 수신 / DuckDB / 결과 API"]
+    publisher["dac-publisher Pod<br/>주기적 원본 발행"]
+    observer["stream-observer Pod<br/>독립 소비자 그룹"]
     subgraph chartpod["chart-worker Pod"]
       chart[".NET 10 · 행 변환 / Category·Legend 그룹핑"]
       renderer["Node.js sidecar · localhost:8091<br/>ECharts SSR + Sharp + 한글 폰트"]
@@ -51,11 +55,19 @@ flowchart TB
   end
   subgraph databases["Docker Compose · Kubernetes 외부"]
     oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
-    postgres[("PostgreSQL 18<br/>Saved views / Runs")]
+    postgres[("PostgreSQL 18<br/>Views / Runs / 스트림 상태·입력")]
+    kafka[("Kafka · 실제 EDS / Defect")]
   end
   browser -->|"동일 출처 HTTP"| gateway
   gateway -->|"NodePort 30082"| portal
-  portal -->|"조회 / 변환"| dac
+  portal -->|"조회"| dac
+  portal -->|"스트림 제어"| transform
+  publisher -->|"원본 조회"| dac
+  publisher -->|"실제 행"| kafka
+  kafka --> transform
+  kafka --> observer
+  transform --> postgres
+  chart -->|"변환 결과 조회"| transform
   portal -->|"차트 / 내보내기"| chart
   chart -->|"HTTP 데이터 API"| dac
   chart -->|"이미지 / HTML"| renderer
@@ -63,7 +75,7 @@ flowchart TB
   portal -->|"Npgsql"| postgres
 ```
 
-Oracle과 PostgreSQL은 클러스터 밖의 Compose 컨테이너와 영속 볼륨을 사용합니다. `chart-worker`는 Oracle에 직접 접속하지 않고 DAC의 HTTP API를 호출합니다. DuckDB는 DAC 요청 안에서 실행하는 인메모리 엔진이며 별도 DB 서버가 아닙니다.
+Oracle과 PostgreSQL은 클러스터 밖의 Compose 컨테이너와 영속 볼륨을 사용합니다. `chart-worker`는 Oracle에 직접 접속하지 않고 DAC의 HTTP API를 호출합니다. DuckDB는 별도 `data-transform-service` Pod 안에서 실행합니다. Kafka 원본 토픽을 변환 서비스와 수신 검증 서비스가 서로 다른 consumer group으로 읽습니다. [스트리밍 흐름과 저장·재처리 계약](docs/streaming.md)을 참고하세요.
 
 **상세 다이어그램:** [배포·요청 시퀀스·ER 모델·오류 처리](docs/architecture.md). 다이어그램 원본은 [docs/diagrams](docs/diagrams)에 있습니다.
 
@@ -83,7 +95,7 @@ cd dac-duckdb
 2. Oracle/PostgreSQL 컨테이너를 시작하고 readiness를 기다립니다.
 3. `dac` kind 클러스터 생성 및 DB 네트워크 연결을 확인합니다.
 4. 기본 EDS 312행·결함 464행과 별도 benchmark 100만 행을 준비합니다.
-5. DAC, Chart API/renderer, Portal 이미지를 빌드하고 배포합니다.
+5. Kafka와 DAC·Publisher·Transform·Observer·Chart API/renderer·Portal을 배포합니다.
 6. 예제 분석 뷰를 PostgreSQL에 등록합니다.
 
 첫 실행은 이미지 다운로드와 Oracle 초기화 때문에 시간이 걸립니다. .NET SDK와 프런트 빌드 도구는 Docker 빌드 단계에서 사용하므로 실행만 할 때 호스트에 설치할 필요가 없습니다. `.env.example`은 설정 설명용이며 실제 비밀번호는 Git에 포함하지 않습니다.
@@ -106,7 +118,8 @@ cd dac-duckdb
 4. 10개 카테고리가 별도 차트로 나뉘는지 확인하고 다음 페이지로 이동합니다.
 5. 포인트 크기를 바꿔 실행합니다. 데이터 재조회 없이 갱신되며 실제 표시 시간이 기록됩니다.
 6. 라벨 컬럼을 선택하고 PNG/SVG를 저장합니다. 뷰를 저장한 뒤 다시 열어 설정 복원을 확인합니다.
-7. Category를 `선택 안 함`, 규모를 100만으로 지정해 한 차트에 전체 점을 그려 봅니다.
+7. **Data streams**에서 원본 규모와 주기를 정해 발행하고, 두 소비자의 수신 건수와 DuckDB 결과를 확인합니다. 완료된 결과는 `차트 열기`로 분석합니다.
+8. Category를 `선택 안 함`, 규모를 100만으로 지정해 한 차트에 전체 점을 그려 봅니다.
 
 ![한 차트에 100만 점과 실제 처리 시간](docs/images/million-points.png)
 
@@ -117,12 +130,14 @@ cd dac-duckdb
 | DuckDB `join` | `lot_id + wafer_id` 복합 키의 inner/left/full 조인 |
 | DuckDB `merge` | 공통 스키마로 맞춘 `UNION ALL` 세로 결합. SQL upsert가 아님 |
 | DuckDB `filter` | 조인 결과에 최소 수율·심각도 AND 조건 적용 |
+| Kafka | 실제 EDS/결함 행을 최대 1천 행씩 발행. 작업 ID만 전달하는 구조가 아님 |
+| `source=transformed` | Kafka로 받은 두 원본의 실제 DuckDB 결과를 datasetId로 재사용 |
 | Category/Legend 그룹핑 | Chart.Worker의 .NET Dictionary. 현재 DuckDB 그룹핑 아님 |
 | `sampleSize` | 호환을 위해 유지한 필드명. 선택 N행 전체를 뜻하며 표본 추출 아님 |
 | 내부 1만 행 페이지 | 끝까지 읽고 합치는 전송 단위. 표시 점 수를 줄이지 않음 |
 | `sampledOutRows` / `sampling` | 항상 `0` / `none` |
 | 카테고리 화면 페이지 | 한 번에 4개 차트를 표시. 각 카테고리의 모든 점은 유지 |
-| 일반 API / DuckDB 변환 한도 | 별도의 기본 데이터 경로는 소스당 1천 행 경계에서 잘린 결과를 거부 |
+| 기존 동기 API 한도 | 기본 데이터 호환 경로는 소스당 1천 행 경계에서 잘린 결과를 거부. Kafka benchmark 경로는 전체 입력을 계산 |
 | benchmark `joined` | 합성 테이블의 대응 필드 투영. 100만 행 DuckDB 조인 성능 주장이 아님 |
 
 워크플로우 엔진은 구현하지 않았습니다. [workflow-request.json](examples/workflow-request.json)과 요청 프리셋을 외부 워크플로우가 보낸 명세로 간주합니다.
@@ -144,7 +159,7 @@ cd dac-duckdb
 ## 테스트
 
 ```bash
-# Docker .NET SDK로 세 서비스의 유닛/API 테스트
+# Docker .NET SDK로 유닛/API/스트림 계약 테스트
 ./scripts/test.sh
 
 # 프런트 테스트와 production build: Node.js 22.12+ 필요
@@ -156,6 +171,7 @@ npm run build --prefix src/Portal.Web
 python3 scripts/portal-integration.py
 python3 scripts/benchmark-integration.py
 python3 scripts/full-data-export-check.py
+python3 scripts/streaming-integration.py   # 실제 Kafka, 두 소비자, 중복·장애 복구, 전체 결과 검증
 ```
 
 브라우저 검증용 Playwright는 별도 도구 디렉터리에 설치할 수 있습니다.
@@ -168,19 +184,24 @@ node scripts/chart-timing-browser.cjs
 node scripts/chart-million-single.cjs
 node scripts/chart-options-browser.cjs
 node scripts/full-data-interaction.cjs
+node scripts/streaming-browser.cjs
 ```
 
-현재 로컬 검증: **.NET 125개**, **프런트 유닛 21개**, 실제 데이터 검사 42항목, 시간 표시/옵션/대량 상호작용/단일 백만 점 브라우저 검사 21항목 통과. 상세 결과와 범위는 [전체 데이터 검증](docs/full-data-validation.md), [차트 시간 검증](docs/chart-timing.md)을 참고하세요. `artifacts/`는 실행 시 생성되며 Git에서 제외합니다. 통합 테스트는 실제 실행 이력을 추가하고, 뷰 생성 테스트는 자신이 만든 레코드를 정리합니다.
+현재 로컬 검증: **.NET 161개**, **프런트 유닛 22개**, **Kafka 통합 13항목·스트림 브라우저 9항목** 통과. 기존 경로 검증은 실제 데이터 검사 42항목, 시간 표시/옵션/대량 상호작용/단일 백만 점 브라우저 검사 21항목 통과. 상세 결과와 범위는 [전체 데이터 검증](docs/full-data-validation.md), [차트 시간 검증](docs/chart-timing.md)을 참고하세요. `artifacts/`는 실행 시 생성되며 Git에서 제외합니다. 통합 테스트는 실제 실행 이력을 추가하고, 뷰 생성 테스트는 자신이 만든 레코드를 정리합니다.
 
 ## 소스 구조
 
 ```text
 src/
-  Dac.Worker/       Oracle API · DuckDB 변환 · 전체 데이터 페이징
+  Dac.Worker/       Oracle API · 호환 프록시 · 전체 데이터 페이징
+  Dac.Contracts/    원본·변환 요청 공유 계약
+  Data.Publisher/   실제 원본을 Kafka에 주기적으로 발행
+  Data.Transform/   Kafka 수신 · DuckDB 계산 · Parquet 결과 API
+  Streaming.Core/   이벤트 계약 · 영속 수신 · Kafka 클라이언트
   Chart.Worker/     데이터 API 클라이언트 · 중립 차트 모델 · 그룹핑
   Chart.Renderer/   ECharts SSR · Sharp PNG · 독립 HTML
   Portal.Api/       BFF · endpoint allowlist · PostgreSQL 저장
-  Portal.Web/       React 분석 UI · 웹 차트 · 렌더 시간 측정
+  Portal.Web/       React 분석·스트림 UI · 웹 차트 · 렌더 시간 측정
 tests/             .NET 서비스별 유닛/API 테스트
 db/                초기 스키마 · 기본 샘플 · 100만 행 생성 SQL
 k8s/               kind · Deployment/Service · nginx 설정
@@ -191,11 +212,11 @@ docs/              설계 · 운영 · API · 측정 · 다이어그램
 
 ## 설계 결정과 현재 범위
 
-- 차트 서비스/데이터 서비스/포털을 분리하고 ECharts 의존성을 렌더러 경계에 모았습니다.
+- 조회·발행·변환·차트·포털을 분리하고 ECharts 의존성을 렌더러 경계에 모았습니다.
 - 저장 뷰는 낙관적 동시성 제어로 수정 충돌을 409로 반환합니다.
 - 페이지 누락·커서 역행·건수 불일치가 발생하면 부분 차트를 성공으로 반환하지 않습니다.
 - BFF는 허용된 내부 경로만 실행하며 요청 크기·동시 실행 수를 제한합니다.
-- 실제 데이터는 Oracle, 사용자의 분석 설정과 실행 이력은 PostgreSQL에 저장합니다.
-- 단일 노드/단일 replica의 로컬 개발 환경입니다. 인증·테넌트 격리·고가용성·자동 백업·분산 추적·워크플로우 엔진·CUDA 가속은 구현 범위에 포함하지 않습니다.
+- 원본은 Oracle, 스트림 입력·상태·분석 설정은 PostgreSQL, 변환 결과는 Parquet PVC, 이벤트는 Kafka에 저장합니다.
+- 단일 노드/단일 브로커의 로컬 개발 환경입니다. Kafka 보존 기간은 7일이며 입력·결과의 자동 정리 정책은 아직 없습니다. 인증·테넌트 격리·고가용성·자동 백업·분산 추적·워크플로우 엔진·CUDA 가속은 구현 범위에 포함하지 않습니다.
 
 상세 근거와 확장 방향은 [설계 문서](docs/architecture.md)에 정리했습니다. 기존 ECharts 배포본의 라이선스는 [ECHARTS-LICENSE](src/Chart.Worker/wwwroot/vendor/ECHARTS-LICENSE)에 보존되어 있으며 각 의존성의 라이선스는 해당 패키지를 따릅니다.

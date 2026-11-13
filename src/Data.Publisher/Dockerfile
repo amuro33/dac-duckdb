@@ -1,0 +1,14 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /source
+COPY src/Dac.Contracts/ src/Dac.Contracts/
+COPY src/Streaming.Core/ src/Streaming.Core/
+COPY src/Data.Publisher/ src/Data.Publisher/
+RUN dotnet publish src/Data.Publisher -c Release -o /app
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /app .
+ENV ASPNETCORE_HTTP_PORTS=8080
+USER $APP_UID
+EXPOSE 8080
+ENTRYPOINT ["dotnet","Data.Publisher.dll"]

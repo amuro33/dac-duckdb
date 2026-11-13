@@ -1,0 +1,14 @@
+{
+  "passed": 9,
+  "checks": [
+    "Live publisher, consumers and transform engine displayed",
+    "Create a continuous feed and render ready dataset state",
+    "Both consumer groups show complete EDS and defect input counts",
+    "Open immutable transform result in Analysis with date axis and all rows",
+    "Dataset deep link survives a full browser reload",
+    "Server SVG export reads the persisted transformed result",
+    "Stop continuous publication from the UI",
+    "Mobile stream controls and tables fit without page overflow",
+    "No browser runtime errors"
+  ]
+}

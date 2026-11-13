@@ -1,5 +1,6 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /source
+COPY src/Dac.Contracts/ src/Dac.Contracts/
 COPY src/Dac.Worker/ src/Dac.Worker/
 RUN dotnet publish src/Dac.Worker -c Release -o /app
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

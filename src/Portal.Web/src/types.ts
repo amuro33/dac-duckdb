@@ -1,5 +1,6 @@
 export type Config = {
   source: string;
+  datasetId?: string | null;
   category: string | null;
   legend: string | null;
   x: string;

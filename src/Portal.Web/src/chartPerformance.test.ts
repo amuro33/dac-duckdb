@@ -112,3 +112,17 @@ describe("packed full data", () => {
   it("rejects string X rather than silently losing it", () =>
     expect(() => packCoordinates([{ x: "wafer", y: 1 }])).toThrow());
 });
+
+it("does not reuse styling across different transformed datasets", () => {
+  expect(
+    canReuseAppearance(
+      { ...initial, source: "transformed", datasetId: "dataset-one" },
+      {
+        ...initial,
+        source: "transformed",
+        datasetId: "dataset-two",
+        pointSize: 7,
+      },
+    ),
+  ).toBe(false);
+});

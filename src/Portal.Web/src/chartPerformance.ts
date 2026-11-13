@@ -24,6 +24,7 @@ export function canReuseAppearance(a: Config, b: Config) {
   const key = (c: Config) =>
     JSON.stringify([
       c.source,
+      c.datasetId ?? null,
       c.category ?? null,
       c.legend ?? null,
       c.x,

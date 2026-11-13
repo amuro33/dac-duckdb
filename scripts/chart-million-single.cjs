@@ -2,6 +2,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 (async () => {
+  const datasetId = process.env.TRANSFORMED_DATASET_ID;
+  if (datasetId && !/^[0-9a-f-]{36}$/i.test(datasetId)) throw new Error("Invalid TRANSFORMED_DATASET_ID");
+  const prefix = datasetId ? "streaming-million-chart" : "chart-million-single";
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 1600, height: 1100 } });
   p.setDefaultTimeout(240000);
@@ -31,9 +34,9 @@ const fs = require("node:fs");
         return response;
       };
     });
-    await p.goto("http://localhost:8082/#analysis");
+    await p.goto("http://localhost:8082/#analysis" + (datasetId ? "?dataset=" + datasetId : ""));
     await p.waitForSelector('.performance-strip[data-complete="true"]');
-    await p.getByLabel("데이터 규모", { exact: true }).selectOption("1000000");
+    if (!datasetId) await p.getByLabel("데이터 규모", { exact: true }).selectOption("1000000");
     await p.waitForFunction(
       () => !document.querySelector(".studio .primary").disabled,
     );
@@ -56,11 +59,11 @@ const fs = require("node:fs");
     assert.deepEqual(errors, []);
     await p.evaluate(() => window.scrollTo(0, 0));
     await p.screenshot({
-      path: "artifacts/chart-million-single.png",
+      path: `artifacts/${prefix}.png`,
       fullPage: true,
     });
     fs.writeFileSync(
-      "artifacts/chart-million-single.json",
+      `artifacts/${prefix}.json`,
       JSON.stringify(
         {
           passed: 3,

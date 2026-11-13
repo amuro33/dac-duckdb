@@ -1,0 +1,56 @@
+{
+  "passed": 13,
+  "checks": [
+    "1000: both groups receive both complete sources; full result IDs/joins verified",
+    "10000: both groups receive both complete sources; full result IDs/joins verified",
+    "100000: both groups receive both complete sources; full result IDs/joins verified",
+    "1000000: both groups receive both complete sources; full result IDs/joins verified",
+    "Base join: matches legacy contract, including one-to-many and orphan rows",
+    "Base merge: matches legacy contract, including one-to-many and orphan rows",
+    "Base filter: matches legacy contract, including one-to-many and orphan rows",
+    "Empty inputs produce a complete empty result",
+    "Offline observer catches up from Kafka while transform continues independently",
+    "Kafka carries actual records; exact duplicate replay does not duplicate durable rows",
+    "Unknown schema is durably quarantined in both consumer groups",
+    "Transform Pod restart preserves results; DAC compatibility proxy calls the separate service",
+    "Chart worker reads every transformed result row through paginated API"
+  ],
+  "scale": [
+    {
+      "size": 1000,
+      "datasetId": "a6a4b105-893b-40aa-a702-634d70c34c92",
+      "elapsedMs": 3106.3,
+      "transformMs": 51.9585,
+      "readyMs": 403.6,
+      "publishMs": 99.4,
+      "resultRows": 1000
+    },
+    {
+      "size": 10000,
+      "datasetId": "b2b7688e-ffaf-45ad-a3ee-64c78eae9fb9",
+      "elapsedMs": 3088.2,
+      "transformMs": 78.649,
+      "readyMs": 1385.5,
+      "publishMs": 367.9,
+      "resultRows": 10000
+    },
+    {
+      "size": 100000,
+      "datasetId": "01932a61-5d91-4237-8825-f3f3ad939cbe",
+      "elapsedMs": 5778.9,
+      "transformMs": 495.0008,
+      "readyMs": 4517.0,
+      "publishMs": 3858.8,
+      "resultRows": 100000
+    },
+    {
+      "size": 1000000,
+      "datasetId": "67d5d548-7a8d-4cf1-a3b7-b4d8218649cc",
+      "elapsedMs": 66558.7,
+      "transformMs": 3562.2014,
+      "readyMs": 58280.3,
+      "publishMs": 54187.5,
+      "resultRows": 1000000
+    }
+  ]
+}

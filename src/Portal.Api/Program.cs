@@ -12,6 +12,7 @@ b.Services.AddSingleton<Store>();
 foreach (var (name, key, fallback) in new[] { ("dac", "DacUrl", "http://dac-worker:8080/"), ("chart", "ChartUrl", "http://chart-worker:8080/") }) b.Services.AddHttpClient(name, c => { c.BaseAddress = new Uri(b.Configuration[key] ?? fallback); c.Timeout = TimeSpan.FromSeconds(240); });
 b.Services.AddProblemDetails();
 b.Services.AddRateLimiter(o => { o.RejectionStatusCode = 429; o.AddConcurrencyLimiter("work", p => { p.PermitLimit = 2; p.QueueLimit = 8; p.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; }); });
+b.Services.AddHttpClient("transform", c => { c.BaseAddress = new Uri(b.Configuration["TransformApiBaseUrl"] ?? "http://data-transform-service:8080/"); c.Timeout = TimeSpan.FromSeconds(240); });
 var app = b.Build();
 await app.Services.GetRequiredService<Store>().Init();
 app.UseExceptionHandler();

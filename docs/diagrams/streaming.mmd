@@ -1,0 +1,13 @@
+flowchart TB
+  subgraph source["Oracle 원본 → 주기적 실제 행 전송"]
+    DAC["dac-worker Pod<br/>Oracle 조회 API"] -->|"전체 원본 응답<br/>내부 1만 행 페이지"| P["dac-publisher Pod<br/>주기적 스냅샷"]
+    P -->|"메시지당 최대 1천 행"| K[("Kafka · Docker Compose<br/>dac.eds.v1 / dac.defects.v1<br/>3 partitions · 7일 보존")]
+  end
+  K --> C["data-transform-service<br/>소비자 그룹 A<br/>영속 저장 → offset 확정<br/>중복·완전성 검증"]
+  K --> O["stream-observer Pod<br/>소비자 그룹 B<br/>독립 수신 · 건수·체크섬 확인"]
+  C --> PG[("PostgreSQL<br/>입력 배치 · 수신 기록<br/>Feed / Dataset<br/>완료 Outbox")]
+  O --> PG
+  PG -->|"두 원본의 전체 입력 확인"| D["data-transform-service<br/>DuckDB<br/>Join / Merge / Filter"]
+  D --> R[("결과 PVC · Parquet<br/>전체 결과 · datasetId")]
+  R -->|"결과 API · 전체 페이지"| CH["chart-worker Pod<br/>Category / Legend / 날짜 축"]
+  CH --> U["통합 웹 · 독립 차트 DOM<br/>스트림 제어 / 수신 상세<br/>결과 선택"]

@@ -68,7 +68,6 @@ export function DataExplorer({ analyze }: { analyze: (c: Config) => void }) {
   return (
     <>
       <PageHeading
-        eyebrow="DATA EXPLORER"
         title="검사·결함 데이터"
         description="기본 Oracle 검사·결함 데이터 조회. 검색·정렬·CSV 내보내기를 지원합니다."
         actions={

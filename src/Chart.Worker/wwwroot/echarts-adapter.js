@@ -1,6 +1,6 @@
 /* Rendering adapter only. The API's ScatterSpec has no ECharts-specific fields. */
 (function(root){
- const palette=['#387a8a','#d39b4b','#8263a0','#5b927b','#cc6f67','#7483b3','#b18c66','#557966','#b67998','#6f929e'];
+ const palette=['#4f46e5','#d97706','#0284c7','#16a34a','#e11d48','#7c3aed','#0d9488','#ea580c','#475569','#db2777'];
  function color(key){let h=0;for(const c of key)h=(h*31+c.charCodeAt(0))|0;return palette[Math.abs(h)%palette.length];}
  function option(spec,panel){
   const categories=[...new Set(panel.series.flatMap(s=>s.points.map(p=>String(p.x))))];

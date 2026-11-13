@@ -25,16 +25,16 @@ import {
   type RenderMeasure,
 } from "./chartPerformance";
 const palette = [
-  "#387a8a",
-  "#d39b4b",
-  "#8263a0",
-  "#5b927b",
-  "#cc6f67",
-  "#7483b3",
-  "#b18c66",
-  "#557966",
-  "#b67998",
-  "#6f929e",
+  "#4f46e5",
+  "#d97706",
+  "#0284c7",
+  "#16a34a",
+  "#e11d48",
+  "#7c3aed",
+  "#0d9488",
+  "#ea580c",
+  "#475569",
+  "#db2777",
 ];
 function color(key: string) {
   let h = 0;
@@ -162,7 +162,10 @@ export function Chart({
           animation: false,
           useUTC: true,
           backgroundColor: "transparent",
-          textStyle: { fontFamily: "Arial, sans-serif", fontSize: 11 },
+          textStyle: {
+            fontFamily: "Geist, 'IBM Plex Sans KR', system-ui, sans-serif",
+            fontSize: 11,
+          },
           tooltip: { trigger: "item", confine: true, renderMode: "richText" },
           legend: {
             type: "scroll",
@@ -171,7 +174,7 @@ export function Chart({
             right: 16,
             itemWidth: 8,
             itemHeight: 8,
-            textStyle: { fontSize: 11, color: "#66737d" },
+            textStyle: { fontSize: 12, color: "#475569" },
           },
           grid: { left: 62, right: 28, top: 54, bottom: 70 },
           xAxis: {
@@ -184,16 +187,16 @@ export function Chart({
             name: spec.x,
             nameLocation: "middle",
             nameGap: 34,
-            nameTextStyle: { color: "#8b949d", fontSize: 10 },
-            axisLine: { lineStyle: { color: "#ced5d9" } },
+            nameTextStyle: { color: "#5a677d", fontSize: 11 },
+            axisLine: { lineStyle: { color: "#d6dae1" } },
             axisLabel: {
-              color: "#84909b",
+              color: "#5a677d",
               hideOverlap: true,
               ...(spec.xType === "date"
                 ? { formatter: "{yyyy}-{MM}-{dd}\n{HH}:{mm}" }
                 : {}),
             },
-            splitLine: { show: true, lineStyle: { color: "#edf0f2" } },
+            splitLine: { show: true, lineStyle: { color: "#eef0f3" } },
             ...(spec.xType === "string"
               ? { data: categories }
               : { scale: true }),
@@ -202,9 +205,9 @@ export function Chart({
             type: "value",
             name: spec.y,
             scale: true,
-            axisLabel: { color: "#84909b" },
-            splitLine: { lineStyle: { color: "#edf0f2" } },
-            nameTextStyle: { color: "#8b949d", fontSize: 10 },
+            axisLabel: { color: "#5a677d" },
+            splitLine: { lineStyle: { color: "#eef0f3" } },
+            nameTextStyle: { color: "#5a677d", fontSize: 11 },
           },
           dataZoom: [
             { type: "inside" },
@@ -213,8 +216,8 @@ export function Chart({
               height: 14,
               bottom: 4,
               borderColor: "transparent",
-              backgroundColor: "#f3f5f6",
-              fillerColor: "#dfe9eb",
+              backgroundColor: "#f4f6f8",
+              fillerColor: "#c7d2fe",
               handleSize: 14,
             },
           ],
@@ -236,7 +239,7 @@ export function Chart({
               position: "top",
               distance: 4,
               fontSize: spec.labelFontSize ?? 11,
-              color: "#435462",
+              color: "#1e293b",
               formatter: (p: any) => String(p.value[2] ?? ""),
             },
             labelLayout: { hideOverlap: true },

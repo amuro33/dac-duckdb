@@ -33,7 +33,6 @@ export function Activity({ replay }: { replay: (r: Run) => void }) {
   return (
     <>
       <PageHeading
-        eyebrow="EXECUTION HISTORY"
         title="실행 이력"
         description="최근 200회 실행 · 요청 설정, 상태, 서버 응답 시간. 결과 데이터는 저장하지 않습니다."
         actions={

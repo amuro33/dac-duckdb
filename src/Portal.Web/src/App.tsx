@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { EngineVs } from "./EngineVs";
 import { Streams } from "./Streams";
 import { Overview } from "./Overview";
 import { Views } from "./Views";
@@ -31,6 +32,7 @@ const pages = [
   ["overview", "Overview", "운영 개요", LayoutDashboard],
   ["data", "Datasets", "데이터 탐색", Database],
   ["analysis", "Analysis", "분석 스튜디오", ChartScatter],
+  ["engines", "Engine VS", "엔진 대결 · Drill", Terminal],
   ["streams", "Data streams", "데이터 스트림", Radio],
   ["views", "Saved views", "저장된 뷰", Bookmark],
   ["console", "API console", "API 콘솔", Terminal],
@@ -140,7 +142,7 @@ export default function App() {
         <a className="logo" href="#overview">
           <img src="/favicon.svg" alt="" />
           <span>
-            WaferScope<small>DATA WORKSPACE</small>
+            WaferScope<small>Data workbench</small>
           </span>
         </a>
         <div className="workspace-label">
@@ -149,7 +151,6 @@ export default function App() {
             Engineering lab<small>Local workspace</small>
           </span>
         </div>
-        <div className="nav-label">WORKSPACE</div>
         <nav>
           {pages.map(([id, en, ko, Icon]) => (
             <a
@@ -160,11 +161,7 @@ export default function App() {
               aria-current={page === id ? "page" : undefined}
             >
               <Icon size={18} />
-              <span>
-                {en}
-                <small>{ko}</small>
-              </span>
-              {page === id && <span className="active-mark" />}
+              <span>{en}</span>
             </a>
           ))}
         </nav>
@@ -220,6 +217,7 @@ export default function App() {
               <Analysis key={session} start={config} notify={setToast} />
             </Suspense>
           )}{" "}
+          {page === "engines" && <EngineVs />}
           {page === "streams" && <Streams analyze={analyze} />}
           {page === "views" && (
             <Views analyze={analyze} notify={setToast} />

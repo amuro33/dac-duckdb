@@ -9,6 +9,9 @@ for attempt in range(60):
     try:
         with urllib.request.urlopen('http://localhost:8095/engines',timeout=10) as r:status=json.load(r)
         if all(status[e]['available'] for e in ['spark','datafusion','drill']) and status['spark']['workerCount']>=2:
+            plugin={"name":"waferscope","config":{"type":"file","connection":"file:///","workspaces":{"root":{"location":"/engine-data","writable":True,"defaultInputFormat":"parquet"}},"formats":{"parquet":{"type":"parquet"}},"enabled":True}}
+            request=urllib.request.Request('http://drill:8047/storage/waferscope.json',data=json.dumps(plugin).encode(),headers={'Content-Type':'application/json'})
+            urllib.request.urlopen(request,timeout=10).close()
             print(json.dumps(status));break
     except Exception:
         pass

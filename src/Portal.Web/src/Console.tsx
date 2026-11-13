@@ -110,7 +110,6 @@ export function Console({ start }: { start?: ConsoleRequest }) {
   return (
     <>
       <PageHeading
-        eyebrow="API CONSOLE"
         title="API 요청"
         description="등록된 API만 실행할 수 있습니다. 실행 결과는 이력에 기록됩니다."
       />

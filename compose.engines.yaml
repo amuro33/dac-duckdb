@@ -40,6 +40,7 @@ services:
     restart: unless-stopped
     networks: [databases]
   drill:
+    ports: ['8047:8047']
     image: apache/drill:1.22.0-openjdk-17
     hostname: drill
     entrypoint: [/bin/sh, -c, 'umask 000; exec "$$DRILL_HOME/bin/drill-embedded"']

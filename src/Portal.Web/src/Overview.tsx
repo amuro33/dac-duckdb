@@ -66,7 +66,6 @@ export function Overview({
   return (
     <>
       <PageHeading
-        eyebrow="WORKSPACE OVERVIEW"
         title="검사 데이터 개요"
         description="검사 데이터부터 결과 공유까지, 하나의 워크스페이스에서."
         actions={
@@ -195,7 +194,6 @@ export function Overview({
             </div>
             <section className="launch-strip">
               <div>
-                <span className="eyebrow">SCALE EXPLORATION</span>
                 <h2>백만 행의 데이터에서 패턴 찾기</h2>
                 <p>
                   실제 Oracle 테스트 테이블 · 선택 범위 전체 조회 · 10개 Lot

@@ -275,7 +275,6 @@ export function Analysis({
   return (
     <>
       <PageHeading
-        eyebrow="ANALYSIS STUDIO"
         title="웨이퍼 분석"
         description="컬럼을 선택하고 분석을 실행하세요. 설정과 결과를 명확히 구분합니다."
         actions={
@@ -359,8 +358,7 @@ export function Analysis({
             />
           ) : (
             <p className="mapping-note">
-              원본 API 직접 조회입니다. EDS × Defect를 선택하면 변환 엔진을
-              선택할 수 있습니다.
+              원본 API 직접 조회입니다. 엔진별 시간 비교는 Engine VS에서 실행할 수 있습니다.
             </p>
           )}
           <label>

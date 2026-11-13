@@ -82,7 +82,6 @@ export function Views({
   return (
     <>
       <PageHeading
-        eyebrow="SAVED VIEWS"
         title="저장된 분석"
         description="분석 설정과 메모를 저장하고, 최신 데이터로 다시 실행하세요."
         actions={

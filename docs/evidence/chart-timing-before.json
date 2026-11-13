@@ -1,0 +1,106 @@
+{
+  "at": "2026-11-13T04:14:32.986Z",
+  "scope": "One run per case; integrated browser including automation, visible 4 of 10 categories; no sampling",
+  "results": [
+    {
+      "label": "full query",
+      "size": 1000,
+      "requests": 1,
+      "clientMs": 97.4,
+      "charts": [
+        {
+          "renderMs": 9.5,
+          "points": 100
+        },
+        {
+          "renderMs": 9.3,
+          "points": 100
+        },
+        {
+          "renderMs": 8.4,
+          "points": 100
+        },
+        {
+          "renderMs": 8.5,
+          "points": 100
+        }
+      ],
+      "ui": null
+    },
+    {
+      "label": "full query",
+      "size": 100000,
+      "requests": 1,
+      "clientMs": 1169.3,
+      "charts": [
+        {
+          "renderMs": 15.6,
+          "points": 10000
+        },
+        {
+          "renderMs": 10,
+          "points": 10000
+        },
+        {
+          "renderMs": 10.9,
+          "points": 10000
+        },
+        {
+          "renderMs": 9.6,
+          "points": 10000
+        }
+      ],
+      "ui": null
+    },
+    {
+      "label": "full query",
+      "size": 1000000,
+      "requests": 1,
+      "clientMs": 20398.8,
+      "charts": [
+        {
+          "renderMs": 271.9,
+          "points": 100000
+        },
+        {
+          "renderMs": 243,
+          "points": 100000
+        },
+        {
+          "renderMs": 238,
+          "points": 100000
+        },
+        {
+          "renderMs": 200.7,
+          "points": 100000
+        }
+      ],
+      "ui": null
+    },
+    {
+      "label": "size change",
+      "size": 1000000,
+      "requests": 1,
+      "clientMs": 20962.9,
+      "charts": [
+        {
+          "renderMs": 899.5,
+          "points": 100000
+        },
+        {
+          "renderMs": 832.8,
+          "points": 100000
+        },
+        {
+          "renderMs": 578.2,
+          "points": 100000
+        },
+        {
+          "renderMs": 696.8,
+          "points": 100000
+        }
+      ],
+      "ui": null
+    }
+  ]
+}

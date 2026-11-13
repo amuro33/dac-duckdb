@@ -1,0 +1,64 @@
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1100 }, acceptDownloads: true });
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  let saved;
+  const checks = [];
+  try {
+    await page.goto('http://localhost:8082/#analysis');
+    await page.waitForSelector('.plot[data-render-ready="true"]');
+    const size = page.getByLabel('포인트 크기', { exact: true });
+    await size.focus(); await size.press('Home');
+    for (let i=0;i<10;i++) await size.press('ArrowRight');
+    await page.getByLabel('포인트 라벨 표시', { exact: true }).check();
+    await page.getByLabel('라벨 컬럼', { exact: true }).selectOption('waferId');
+    const font = page.getByLabel('라벨 글자 크기', { exact: true });
+    await font.focus(); await font.press('Home');
+    for (let i=0;i<4;i++) await font.press('ArrowRight');
+    const response = page.waitForResponse(r=>r.url().endsWith('/api/execute') && r.request().postDataJSON()?.path==='/api/chart/scatter');
+    await page.getByRole('button', { name: '분석 실행', exact: true }).click();
+    const result = await (await response).json();
+    assert.equal(result.status, 200); assert.equal(result.data.pointSize, 7); assert.equal(result.data.showLabels, true); assert.equal(result.data.labelFontSize, 12);
+    assert.match(result.data.charts[0].series[0].points[0].label, /^W\d{3}$/);
+    await page.waitForSelector('.plot[data-labels="true"][data-render-ready="true"]');
+    checks.push('UI size, label column and font settings reach the chart renderer');
+    const svg = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'SVG', exact: true }).first().click();
+    await (await svg).saveAs('artifacts/chart-options.svg');
+    assert.match(fs.readFileSync('artifacts/chart-options.svg','utf8'), /W\d{3}/);
+    checks.push('SVG includes selected point labels');
+    const png = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+    await (await png).saveAs('artifacts/chart-options.png');
+    assert.equal(fs.readFileSync('artifacts/chart-options.png').readUInt32BE(0), 0x89504e47);
+    checks.push('PNG export succeeds with labels');
+    const name = 'Appearance QA ' + Date.now();
+    await page.getByRole('button', {name:'뷰 저장',exact:true}).click();
+    await page.getByLabel('뷰 이름',{exact:true}).fill(name);
+    await page.getByRole('button',{name:'저장',exact:true}).click();
+    await page.waitForSelector('[role="dialog"]',{state:'hidden'});
+    const views = await (await page.request.get('http://localhost:8082/api/workspace/views')).json();
+    saved = views.find(v=>v.name===name); assert.ok(saved); assert.equal(saved.config.pointSize,7); assert.equal(saved.config.showLabels,true);
+    await page.goto('http://localhost:8082/#analysis?view='+saved.id);
+    await page.reload(); await page.waitForSelector('.plot[data-labels="true"][data-render-ready="true"]');
+    assert.equal(await size.inputValue(),'7'); assert.equal(await font.inputValue(),'12');
+    checks.push('Saved view restores all appearance settings after a full reload');
+    await page.screenshot({path:'artifacts/chart-options-browser.png',fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    await page.waitForFunction(()=>{
+      const plot=document.querySelector('.plot'),canvas=plot?.querySelector('canvas');
+      return canvas && Math.abs(parseFloat(canvas.style.width)-plot.clientWidth)<1;
+    });
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    checks.push('Options fit mobile width and the canvas resizes correctly');
+    assert.deepEqual(errors,[]); checks.push('No browser runtime errors');
+    fs.writeFileSync('artifacts/chart-options-browser.json',JSON.stringify({passed:checks.length,checks},null,2));
+    console.log(`PASS: ${checks.length} appearance browser checks`);
+  } finally {
+    if(saved) await page.request.delete('http://localhost:8082/api/workspace/views/'+saved.id+'?version='+saved.version);
+    await browser.close();
+  }
+})().catch(e=>{console.error(e);process.exit(1)});

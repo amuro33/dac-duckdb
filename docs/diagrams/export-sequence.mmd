@@ -1,0 +1,28 @@
+sequenceDiagram
+  actor User as 사용자
+  participant Web as React UI
+  participant BFF as Portal BFF
+  participant Chart as Chart.Worker
+  participant DAC as Dac.Worker
+  participant SSR as Renderer sidecar
+  User->>Web: PNG / SVG / HTML 저장
+  Web->>BFF: POST /api/export (적용된 설정, 형식, 카테고리)
+  BFF->>Chart: POST /api/chart/render
+  Chart->>DAC: 적용된 조건으로 데이터 재조회
+  DAC-->>Chart: 선택 범위 전체 데이터
+  Chart->>Chart: 중립 ScatterSpec 구성
+  alt PNG 또는 SVG
+    Chart->>SSR: 선택한 카테고리의 모든 점
+    SSR->>SSR: ECharts SVG SSR + 한글 폰트
+    opt PNG
+      SSR->>SSR: Sharp로 SVG 래스터화
+    end
+  else HTML
+    Chart->>SSR: 모든 카테고리와 모든 점
+    SSR->>SSR: 데이터 + ECharts 코드 포함 독립 HTML
+  end
+  SSR-->>Chart: 파일 바이트
+  Chart-->>BFF: 파일 응답
+  BFF-->>Web: 다운로드
+  Web-->>User: 저장 완료
+  Note over Web,SSR: 브라우저 스크린샷이 아님. 현재 줌/숨긴 범례 상태는 내보내기에 반영되지 않음

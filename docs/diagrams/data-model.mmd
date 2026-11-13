@@ -1,0 +1,52 @@
+erDiagram
+  DAC_EDS_DATA {
+    string LOT_ID PK
+    string WAFER_ID PK
+    string PRODUCT
+    number TESTED_DIES
+    number GOOD_DIES
+    number YIELD_PCT
+    timestamp INSPECTED_AT
+  }
+  DAC_DEFECT_DATA {
+    string DEFECT_ID PK
+    string LOT_ID
+    string WAFER_ID
+    string DEFECT_TYPE
+    string SEVERITY
+    number DEFECT_COUNT
+  }
+  DAC_CHART_BENCHMARK {
+    number SAMPLE_ID PK
+    string LOT_ID
+    string WAFER_ID
+    string PRODUCT
+    timestamp INSPECTED_AT
+    number TESTED_DIES
+    number GOOD_DIES
+    number YIELD_PCT
+    string DEFECT_TYPE
+    string SEVERITY
+    number DEFECT_COUNT
+  }
+  ws_views {
+    uuid id PK
+    varchar name
+    text description
+    jsonb config
+    boolean pinned
+    integer version
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  ws_runs {
+    uuid id PK
+    text path
+    varchar method
+    jsonb request
+    integer status
+    double duration_ms
+    integer row_count
+    timestamptz created_at
+  }
+  DAC_EDS_DATA o|..o{ DAC_DEFECT_DATA : "Lot + Wafer 논리 join (FK 없음)"

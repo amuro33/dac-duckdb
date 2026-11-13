@@ -1,0 +1,8 @@
+{
+  "operation": "filter",
+  "joinType": "left",
+  "lotId": "LOT-002",
+  "minYield": 94,
+  "severity": "HIGH",
+  "limit": 100
+}

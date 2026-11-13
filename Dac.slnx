@@ -1,0 +1,1 @@
+<Solution><Project Path="src/Dac.Worker/Dac.Worker.csproj"/><Project Path="tests/Dac.Worker.Tests/Dac.Worker.Tests.csproj"/><Project Path="src/Chart.Worker/Chart.Worker.csproj"/><Project Path="tests/Chart.Worker.Tests/Chart.Worker.Tests.csproj"/><Project Path="src/Portal.Api/Portal.Api.csproj"/><Project Path="tests/Portal.Api.Tests/Portal.Api.Tests.csproj"/></Solution>

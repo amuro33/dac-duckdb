@@ -1,0 +1,14 @@
+{
+  "source": "eds",
+  "category": "lotId",
+  "legend": "product",
+  "x": "inspectedAt",
+  "y": "yieldPct",
+  "xType": "date",
+  "lotId": null,
+  "sampleSize": 10000,
+  "pointSize": null,
+  "showLabels": false,
+  "labelColumn": null,
+  "labelFontSize": 11
+}

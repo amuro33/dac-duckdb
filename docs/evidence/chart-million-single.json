@@ -1,0 +1,18 @@
+{
+  "passed": 3,
+  "checks": [
+    "All 1,000,000 API points in one category",
+    "Single million-point chart finishes rendering with visible timing",
+    "No browser exceptions"
+  ],
+  "timing": {
+    "batchId": "2",
+    "complete": "true",
+    "kind": "query",
+    "receiveMs": "19674",
+    "renderMs": "637.2000000029802",
+    "totalMs": "20311.20000000298",
+    "visiblePoints": "1000000",
+    "text": "전체 조회 · 현재 1/1개 차트 · 1,000,000/1,000,000점 · 샘플링 없음조회 · 수신19.67초현재 페이지 그리기637.2 ms전체 표시20.31초"
+  }
+}

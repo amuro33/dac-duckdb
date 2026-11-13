@@ -1,0 +1,14 @@
+{
+  "passed": 9,
+  "checks": [
+    "1K/10K/100K full results: visible point counts and wall-time accounting",
+    "Point size changes reuse all four instances without any scatter API request",
+    "Explicit rerun with unchanged settings refreshes data",
+    "Category pagination measures a fresh batch without a data query",
+    "Returning from metadata tab measures actual new chart rendering",
+    "Timing display fits mobile and canvas resizes",
+    "String X, point labels and font-only reuse render successfully",
+    "Failed refresh retains last successful chart measurement",
+    "No browser runtime errors"
+  ]
+}

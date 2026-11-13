@@ -1,0 +1,82 @@
+{
+  "info": {
+    "name": "Chart Worker",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081"
+    }
+  ],
+  "item": [
+    {
+      "name": "Scatter data",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chart/scatter",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"source\": \"eds\",\n  \"category\": \"lotId\",\n  \"legend\": \"product\",\n  \"x\": \"waferId\",\n  \"y\": \"yieldPct\",\n  \"xType\": \"string\"\n}"
+        }
+      }
+    },
+    {
+      "name": "SVG image",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chart/render?format=svg&categoryIndex=0",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"source\": \"eds\",\n  \"category\": \"lotId\",\n  \"legend\": \"product\",\n  \"x\": \"waferId\",\n  \"y\": \"yieldPct\",\n  \"xType\": \"string\"\n}"
+        }
+      }
+    },
+    {
+      "name": "PNG image",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chart/render?format=png&categoryIndex=0",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"source\": \"eds\",\n  \"category\": \"lotId\",\n  \"legend\": \"product\",\n  \"x\": \"waferId\",\n  \"y\": \"yieldPct\",\n  \"xType\": \"string\"\n}"
+        }
+      }
+    },
+    {
+      "name": "HTML export",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chart/render?format=html",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"source\": \"eds\",\n  \"category\": \"lotId\",\n  \"legend\": \"product\",\n  \"x\": \"waferId\",\n  \"y\": \"yieldPct\",\n  \"xType\": \"string\"\n}"
+        }
+      }
+    }
+  ]
+}

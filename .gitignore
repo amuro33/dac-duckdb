@@ -1,0 +1,21 @@
+# Local credentials and cluster access
+.env
+.env.*
+!.env.example
+.kube/
+*.key
+*.pem
+*.pfx
+# Build output and dependency caches
+**/bin/
+**/obj/
+.nuget/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/__pycache__/
+*.pyc
+# Generated test evidence, exports and local backups
+artifacts/
+*.log
+.DS_Store

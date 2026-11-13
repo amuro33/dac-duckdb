@@ -1,0 +1,26 @@
+flowchart LR
+  user["Browser<br/>React · ECharts Canvas"]
+  gateway["nginx gateway<br/>8082 → NodePort 30082"]
+  subgraph kind["kind Kubernetes · namespace dac"]
+    bff["waferscope Pod<br/>.NET 10 BFF + React 앱"]
+    subgraph cp["chart-worker Pod"]
+      chart["Chart API<br/>DataApiClient / ChartBuilder"]
+      render["Renderer sidecar · 8091<br/>ECharts SSR / Sharp / 한글 폰트"]
+    end
+    subgraph dp["dac-worker Pod"]
+      dac["Data API<br/>Oracle 조회 / 전체 데이터 페이징"]
+      duck["DuckDB · 인메모리<br/>join / merge / filter"]
+    end
+  end
+  subgraph compose["Docker Compose · 영속 볼륨"]
+    oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
+    pg[("PostgreSQL 18<br/>Views / Runs")]
+  end
+  user --> gateway --> bff
+  bff -->|"차트 요청"| chart
+  bff -->|"데이터 / 변환 요청"| dac
+  chart -->|"HTTP 데이터 조회"| dac
+  chart -->|"localhost HTTP"| render
+  dac -->|"요청별 계산"| duck
+  dac -->|"ODP.NET"| oracle
+  bff -->|"Npgsql"| pg

@@ -1,0 +1,10 @@
+name: waferscope-access
+services:
+  gateway:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports: ['${WAFERSCOPE_BIND_ADDRESS:-127.0.0.1}:8082:80']
+    volumes: ['./k8s/portal-gateway.conf:/etc/nginx/conf.d/default.conf:ro']
+    networks: [kind]
+networks:
+  kind: {external: true}

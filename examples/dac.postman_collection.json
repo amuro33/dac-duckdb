@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "DAC Worker",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "EDS",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/dac/get_eds_data"
+      }
+    },
+    {
+      "name": "Defects",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/dac/get_defect_data"
+      }
+    },
+    {
+      "name": "Lots",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/dac/lots"
+      }
+    },
+    {
+      "name": "Summary",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/dac/summary"
+      }
+    },
+    {
+      "name": "DuckDB join",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/dac/transform",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"join\",\n  \"joinType\": \"left\",\n  \"limit\": 100\n}"
+        }
+      }
+    },
+    {
+      "name": "DuckDB merge",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/dac/transform",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"merge\",\n  \"joinType\": \"left\",\n  \"limit\": 100\n}"
+        }
+      }
+    },
+    {
+      "name": "DuckDB filter",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/dac/transform",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operation\": \"filter\",\n  \"joinType\": \"left\",\n  \"limit\": 100,\n  \"minYield\": 94,\n  \"severity\": \"HIGH\"\n}"
+        }
+      }
+    }
+  ]
+}

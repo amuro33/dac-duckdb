@@ -1,6 +1,6 @@
 # 시스템 설계와 데이터 흐름
 
-**현재 기본 흐름 (2026-11-16):** [DAC 저장 쿼리](dac-query-console.md) → [워크플로우](workflows.md) → [고정 데이터 소스·분석·Engine VS](data-sources.md)입니다. 아래 기존 직접 조회·Kafka 경로는 별도로 유지합니다. 소스 캡처, 버전 실행과 비교 API는 각 링크를 기준으로 사용하세요.
+**현재 기본 흐름 (2026-11-16):** [DAC 저장 쿼리](dac-query-console.md) → [워크플로우](workflows.md) → [고정 데이터 소스·분석·Engine Benchmark](data-sources.md)입니다. 아래 기존 직접 조회·Kafka 경로는 별도로 유지합니다. 소스 캡처, 버전 실행과 비교 API는 각 링크를 기준으로 사용하세요.
 
 **Kafka 확장 적용:** 원본 조회와 DuckDB 변환을 별도 Pod로 분리했습니다. 실제 행 발행·독립 소비자 그룹·영속 수신·Parquet 결과의 최신 구조는 [Kafka 스트리밍 설계](streaming.md)를 참고하세요. 아래 대용량 직접 조회 경로도 계속 지원합니다.
 

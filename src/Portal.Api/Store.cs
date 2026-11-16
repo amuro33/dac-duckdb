@@ -10,6 +10,7 @@ public sealed class Store(NpgsqlDataSource db)
         using var c = db.CreateCommand("""
  CREATE TABLE IF NOT EXISTS ws_views(id uuid PRIMARY KEY,name varchar(80) NOT NULL,description text NOT NULL,config jsonb NOT NULL,pinned boolean NOT NULL DEFAULT false,version integer NOT NULL DEFAULT 1,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS ws_runs(id uuid PRIMARY KEY,path text NOT NULL,method varchar(8) NOT NULL,request jsonb,status integer NOT NULL,duration_ms double precision NOT NULL,row_count integer,created_at timestamptz NOT NULL DEFAULT now());
+ ALTER TABLE ws_runs ADD COLUMN IF NOT EXISTS query_version integer;
  CREATE INDEX IF NOT EXISTS ws_runs_recent ON ws_runs(created_at DESC);
  """);
         await c.ExecuteNonQueryAsync();
@@ -65,9 +66,9 @@ public sealed class Store(NpgsqlDataSource db)
         c.Parameters.AddWithValue(version);
         return await c.ExecuteNonQueryAsync(ct) == 1;
     }
-    public async Task Run(Guid id, ExecuteInput input, int status, double ms, int? count, CancellationToken ct)
+    public async Task Run(Guid id, ExecuteInput input, int status, double ms, int? count, CancellationToken ct, int? queryVersion = null)
     {
-        using var c = db.CreateCommand("INSERT INTO ws_runs(id,path,method,request,status,duration_ms,row_count) VALUES($1,$2,$3,$4,$5,$6,$7)");
+        using var c = db.CreateCommand("INSERT INTO ws_runs(id,path,method,request,status,duration_ms,row_count,query_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8)");
         c.Parameters.AddWithValue(id);
         c.Parameters.AddWithValue(input.Path);
         c.Parameters.AddWithValue(input.Method);
@@ -75,12 +76,14 @@ public sealed class Store(NpgsqlDataSource db)
         c.Parameters.AddWithValue(status);
         c.Parameters.AddWithValue(ms);
         c.Parameters.AddWithValue(NpgsqlDbType.Integer, (object?)count ?? DBNull.Value);
+        c.Parameters.AddWithValue(NpgsqlDbType.Integer, (object?)queryVersion ?? DBNull.Value);
         await c.ExecuteNonQueryAsync(ct);
     }
-    public async Task<object> Runs(int limit, CancellationToken ct)
+    public async Task<List<object>> Runs(int limit, CancellationToken ct, Guid? id = null)
     {
-        using var c = db.CreateCommand("SELECT id,path,method,request::text,status,duration_ms,row_count,created_at FROM ws_runs ORDER BY created_at DESC LIMIT $1");
+        using var c = db.CreateCommand("SELECT id,path,method,request::text,status,duration_ms,row_count,created_at,query_version FROM ws_runs WHERE ($2::uuid IS NULL OR id=$2) ORDER BY created_at DESC LIMIT $1");
         c.Parameters.AddWithValue(Math.Clamp(limit, 1, 200));
+        c.Parameters.AddWithValue(NpgsqlDbType.Uuid, (object?)id ?? DBNull.Value);
         using var r = await c.ExecuteReaderAsync(ct);
         var list = new List<object>();
         while (await r.ReadAsync(ct))
@@ -93,7 +96,8 @@ public sealed class Store(NpgsqlDataSource db)
                 status = r.GetInt32(4),
                 durationMs = Math.Round(r.GetDouble(5), 1),
                 rowCount = r.IsDBNull(6) ? (int?)null : r.GetInt32(6),
-                createdAt = r.GetDateTime(7)
+                createdAt = r.GetDateTime(7),
+                queryVersion = r.IsDBNull(8) ? (int?)null : r.GetInt32(8)
             });
         return list;
     }

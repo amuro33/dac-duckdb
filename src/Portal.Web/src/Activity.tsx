@@ -26,7 +26,9 @@ export function Activity({ replay }: { replay: (r: Run) => void }) {
   }, []);
   const filtered = runs.filter(
     (r) =>
-      r.path.toLowerCase().includes(search.toLowerCase()) &&
+      (r.path + " " + JSON.stringify(r.request ?? {}))
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
       (filter === "all" ||
         (filter === "errors" ? r.status >= 400 : r.status < 400)),
   );
@@ -64,7 +66,7 @@ export function Activity({ replay }: { replay: (r: Run) => void }) {
             <Search size={14} />
             <input
               aria-label="실행 경로 검색"
-              placeholder="경로 검색"
+              placeholder="query_id · DB · 바인딩 값 검색"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -136,6 +138,12 @@ export function Activity({ replay }: { replay: (r: Run) => void }) {
           <dl className="details">
             <dt>Path</dt>
             <dd>{selected.path}</dd>
+            {selected.queryVersion != null && (
+              <>
+                <dt>SQL 버전</dt>
+                <dd>{selected.queryVersion}</dd>
+              </>
+            )}
             <dt>Status</dt>
             <dd>{selected.status}</dd>
             <dt>Latency</dt>

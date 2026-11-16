@@ -12,6 +12,7 @@ if ! docker network inspect local-databases_default --format '{{json .Containers
  docker network connect local-databases_default dac-control-plane
 fi
 python3 scripts/seed.py
+python3 scripts/seed.py db/query-catalog.sql
 python3 scripts/seed.py db/chart-samples.sql
 python3 scripts/seed.py db/benchmark.sql
 docker build -t dac-worker:dev .

@@ -83,7 +83,7 @@ export function Views({
     <>
       <PageHeading
         title="저장된 분석"
-        description="분석 설정과 메모를 저장하고, 최신 데이터로 다시 실행하세요."
+        description="저장한 분석을 열거나 이름·메모를 관리하세요. 워크플로우/API 분석은 저장 당시의 고정 소스를 사용합니다."
         actions={
           <button className="primary" onClick={() => analyze(initial)}>
             <Plus size={15} />새 분석
@@ -108,7 +108,7 @@ export function Views({
       ) : !filtered.length ? (
         <Empty
           title="저장된 분석이 없습니다"
-          description="분석 스튜디오에서 실행한 설정을 ‘뷰 저장’으로 보관하세요."
+          description="‘분석하기’ 탭에서 데이터를 분석한 뒤 상단의 ‘뷰 저장’을 눌러 보관하세요."
           action={
             <button onClick={() => analyze(initial)}>분석 스튜디오 열기</button>
           }

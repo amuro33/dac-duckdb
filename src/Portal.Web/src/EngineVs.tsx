@@ -1,434 +1,79 @@
-import { useEffect, useRef, useState } from "react";
-import { data, fmt, csv, download } from "./api";
+import { useEffect, useState } from "react";
+import { EngineVs as LegacyEngineVs } from "./LegacyEngineVs";
+import { json, fmt, when, csv, download } from "./api";
 import { PageHeading, ErrorBox } from "./ui";
-import { engineNames, type Engine, type Execution } from "./engines";
-const engines: Engine[] = ["duckdb", "spark", "datafusion"];
-type Run = {
-  state: string;
-  id?: string;
-  execution?: Execution;
-  rows?: number;
-  error?: string;
-};
-const storageKey = "waferscope.engine-comparison.v1";
-function restore() {
-  try {
-    const value = JSON.parse(sessionStorage.getItem(storageKey) ?? "null");
-    if (
-      !value ||
-      typeof value.selected !== "string" ||
-      !value.runs ||
-      typeof value.runs !== "object"
-    )
-      return undefined;
-    const runs: Record<string, Run> = {};
-    for (const engine of engines) {
-      const run = value.runs[engine];
-      if (run && typeof run.state === "string")
-        runs[engine] = {
-          ...run,
-          state:
-            run.state === "완료" || run.state === "실패"
-              ? run.state
-              : run.id
-                ? "상태 확인 필요"
-                : "미실행",
-        };
-    }
-    return {
-      selected: value.selected,
-      runs,
-      order: Array.isArray(value.order) && value.order.length === 3 && new Set(value.order).size === 3 && value.order.every((e: Engine) => engines.includes(e)) ? value.order as Engine[] : engines,
-      savedAt: typeof value.savedAt === "string" ? value.savedAt : "",
-    };
-  } catch {
-    return undefined;
-  }
-}
+import { engineNames } from "./engines";
+import "./sources.css";
+const engines = ["duckdb", "spark", "datafusion"] as const;
 export function EngineVs() {
-  const [restored] = useState(restore);
-  const [savedAt, setSavedAt] = useState(restored?.savedAt ?? "");
-  const [datasets, setDatasets] = useState<any[]>([]),
-    [selected, setSelected] = useState<string>(restored?.selected ?? "");
-  const [runs, setRuns] = useState<Record<string, Run>>(restored?.runs ?? {}),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const cancel = useRef<AbortController | undefined>(undefined);
-  const round = useRef(restored ? (engines.indexOf(restored.order[0]) + 1) % 3 : 0);
-  const [order, setOrder] = useState<Engine[]>(restored?.order ?? engines);
-  const update = (engine: Engine, run: Run) =>
-    setRuns((old) => ({ ...old, [engine]: run }));
+  const params = new URLSearchParams(location.hash.split("?")[1]);
+  const [workflows, setWorkflows] = useState<any[]>([]), [workflow, setWorkflow] = useState(params.get("workflow") || ""),
+    [versions, setVersions] = useState<any[]>([]), [version, setVersion] = useState(""),
+    [runs, setRuns] = useState<any[]>([]), [previous, setPrevious] = useState(params.get("run") || ""),
+    [inputs, setInputs] = useState("{}"), [loading, setLoading] = useState(false),
+    [definition, setDefinition] = useState<any>(null), [history, setHistory] = useState<any[]>([]),
+    [runId, setRunId] = useState(() => sessionStorage.getItem("workflow-benchmark-run") || ""),
+    [run, setRun] = useState<any>(null), [error, setError] = useState(""), [sending, setSending] = useState(false), [legacy, setLegacy] = useState(false);
+  const busy = sending || ["queued", "running"].includes(run?.status);
+  useEffect(() => { json("/api/workflows").then(w => { setWorkflows(w); setWorkflow(id => id || w.find((x:any) => x.published_version)?.id || ""); }).catch(e => setError(e.message)); }, []);
   useEffect(() => {
-    try {
-      sessionStorage.setItem(
-        storageKey,
-        JSON.stringify({ selected, runs, savedAt, order }),
-      );
-    } catch {
-      /* The live result remains usable if browser storage is unavailable. */
-    }
-  }, [selected, runs, savedAt, order]);
-  async function syncResults() {
-    setError("");
-    setBusy(true);
-    try {
-      await Promise.all(
-        engines.map(async (engine) => {
-          const run = runs[engine];
-          if (!run?.id) return;
-          const detail = await data(`/api/streams/datasets/${run.id}`);
-          const result = detail.result[0];
-          update(engine, {
-            id: run.id,
-            state:
-              detail.dataset.status === "ready"
-                ? "완료"
-                : detail.dataset.status === "failed"
-                  ? "실패"
-                  : "서버 실행 중",
-            execution: result?.execution,
-            rows: result?.resultRows,
-            error: result?.error,
-          });
-        }),
-      );
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
+    if (!workflow) return;
+    const controller = new AbortController();setLoading(true);setDefinition(null);setVersion("");
+    Promise.all([json(`/api/workflows/${workflow}/versions`,{signal:controller.signal}),json(`/api/workflows/${workflow}/runs`,{signal:controller.signal})])
+      .then(([v,r]) => {setVersions(v);setVersion(v[0]?.version.toString() || "");setRuns(r.filter((x:any)=>x.status === "succeeded" && x.version));})
+      .catch(e=>{if(!controller.signal.aborted)setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return ()=>controller.abort();
+  },[workflow]);
+  useEffect(()=>{
+    if(!workflow || !version)return;
+    const controller=new AbortController();setLoading(true);
+    json(`/api/workflows/${workflow}/versions/${version}`,{signal:controller.signal}).then(v=>{setDefinition(v.definition);setInputs(JSON.stringify(v.definition.inputs,null,2));})
+      .catch(e=>{if(!controller.signal.aborted)setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return ()=>controller.abort();
+  },[workflow,version]);
+  useEffect(()=>{json("/api/source-comparisons").then(h=>setHistory(h.filter((x:any)=>x.config.operation === "workflow"))).catch(e=>setError(e.message));},[run?.status]);
+  useEffect(()=>{
+    if(!runId)return;
+    sessionStorage.setItem("workflow-benchmark-run",runId);
+    let live=true,timer:ReturnType<typeof setTimeout>;
+    async function poll(){try{const r=await json("/api/source-comparisons/"+runId);if(!live)return;setRun(r);if(["queued","running"].includes(r.status))timer=setTimeout(poll,700);}catch(e:any){if(live)setError(e.message);}}
+    poll();return()=>{live=false;clearTimeout(timer);};
+  },[runId]);
+  async function benchmark(){
+    setSending(true);setError("");
+    try{
+      const body=previous?{runId:previous}:{workflowId:workflow,version:Number(version),inputs:JSON.parse(inputs)};
+      const response=await json("/api/workflow-benchmarks",{method:"POST",body:JSON.stringify(body)});
+      setRun({status:"queued",config:{workflowName:workflows.find(w=>w.id===workflow)?.name,version},results:{}});setRunId(response.id);
+    }catch(e:any){setError(e.message);}finally{setSending(false);}
   }
-  async function refresh() {
-    try {
-      const result = await data("/api/streams/datasets");
-      const ready = result.filter((d: any) => d.status === "ready");
-      setDatasets(ready);
-      setSelected((old) => old || ready[0]?.id || "");
-    } catch (e: any) {
-      setError(e.message);
-    }
-  }
-  useEffect(() => {
-    refresh();
-    return () => cancel.current?.abort();
-  }, []);
-  async function compare() {
-    const a = new AbortController();
-    cancel.current = a;
-    setBusy(true);
-    setError("");
-    setSavedAt(new Date().toISOString());
-    const sequence = [
-      ...engines.slice(round.current % 3),
-      ...engines.slice(0, round.current % 3),
-    ];
-    round.current++;
-    setOrder(sequence);
-    setRuns(Object.fromEntries(engines.map((e) => [e, { state: "대기" }])));
-    try {
-      for (const engine of sequence) {
-        if (a.signal.aborted) break;
-        let id: string | undefined;
-        try {
-          update(engine, { state: "요청 중" });
-          id = (
-            await data(
-              `/api/streams/datasets/${selected}/analyze`,
-              "POST",
-              { engine },
-              true,
-              a.signal,
-            )
-          ).id;
-          const deadline = Date.now() + 25 * 60 * 1000;
-          while (!a.signal.aborted) {
-            const detail = await data(
-              `/api/streams/datasets/${id}`,
-              "GET",
-              undefined,
-              false,
-              a.signal,
-            );
-            const d = detail.dataset;
-            if (d.status === "failed")
-              throw Error(detail.result[0]?.error ?? "실행 실패");
-            if (d.status === "ready") {
-              update(engine, {
-                state: "완료",
-                id,
-                execution: detail.result[0]?.execution,
-                rows: detail.result[0]?.resultRows,
-              });
-              break;
-            }
-            if (Date.now() > deadline)
-              throw Error(
-                "대기 시간 초과 · Data streams에서 작업을 확인하세요",
-              );
-            update(engine, {
-              state: d.status === "processing" ? "실행 중" : "서버 대기",
-              id,
-            });
-            await new Promise<void>((resolve) => {
-              const finish = () => {
-                clearTimeout(timer);
-                a.signal.removeEventListener("abort", finish);
-                resolve();
-              };
-              const timer = setTimeout(finish, 1000);
-              a.signal.addEventListener("abort", finish, { once: true });
-            });
-          }
-        } catch (e: any) {
-          update(engine, {
-            state: a.signal.aborted ? "대기 중단" : "실패",
-            id,
-            error: a.signal.aborted
-              ? "서버에 접수된 작업은 계속됩니다."
-              : e.message,
-          });
-        }
-      }
-    } finally {
-      if (a.signal.aborted)
-        setRuns((old) =>
-          Object.fromEntries(
-            Object.entries(old).map(([key, r]) => [
-              key,
-              r.state === "완료" || r.state === "실패"
-                ? r
-                : {
-                    ...r,
-                    state: r.id ? "대기 중단" : "미실행",
-                    error: r.id
-                      ? "서버 작업은 계속됩니다. 결과 상태 갱신으로 확인하세요."
-                      : undefined,
-                  },
-            ]),
-          ),
-        );
-      setBusy(false);
-    }
-  }
-  const complete = engines.every(
-    (e) => runs[e]?.state === "완료" && runs[e]?.execution,
-  );
-  const sameRows =
-    complete &&
-    engines.every((e) => runs[e].rows != null) &&
-    new Set(engines.map((e) => runs[e].rows)).size === 1;
-  const best = complete
-    ? Math.min(...engines.map((e) => runs[e].execution!.totalMs))
-    : 0;
-  const source = datasets.find((d) => d.id === selected);
-  const drill = `http://${location.hostname}:8047`;
-  return (
-    <>
-      <PageHeading
-          title="DuckDB vs Spark vs DataFusion"
-        description="같은 원본 스냅샷과 변환 조건으로 세 엔진의 실제 처리 시간을 비교합니다."
-        actions={
-          <button disabled={busy} onClick={refresh}>
-            원본 새로고침
-          </button>
-        }
-      />
-      <ErrorBox error={error} />
-      {Object.keys(runs).length > 0 && (
-        <section className="panel vs-source">
-          <strong>
-            최근 비교 {savedAt ? new Date(savedAt).toLocaleString("ko-KR") : ""}
-          </strong>
-          <p>
-            이 브라우저 탭의 비교 결과를 복원합니다. 서버에 접수된 작업은 화면을
-            닫아도 계속됩니다.
-          </p>
-          <button disabled={busy} onClick={syncResults}>
-            결과 상태 갱신
-          </button>
-          <button
-            disabled={busy || !engines.some((e) => runs[e]?.execution)}
-            onClick={() =>
-              download(
-                new Blob(
-                  [
-                    csv(
-                      engines
-                        .filter((e) => runs[e]?.execution)
-                        .map((e) => ({
-                          engine: engineNames[e],
-                          sourceDatasetId: selected,
-                          resultDatasetId: runs[e].id,
-                          startedAt: savedAt,
-                          state: runs[e].state,
-                          rows: runs[e].rows,
-                          preparationMs: runs[e].execution!.preparationMs,
-                          engineMs: runs[e].execution!.engineMs,
-                          totalMs: runs[e].execution!.totalMs,
-                        })),
-                    ),
-                  ],
-                  { type: "text/csv;charset=utf-8" },
-                ),
-                "engine-comparison.csv",
-              )
-            }
-          >
-            비교 결과 CSV
-          </button>
-        </section>
-      )}
-      <section className="panel vs-source">
-        <label>
-          비교할 원본 스냅샷
-          <select
-            aria-label="비교 원본"
-            value={selected}
-            disabled={busy}
-            onChange={(e) => {
-              setSelected(e.target.value);
-              setRuns({});
-            }}
-          >
-            {selected && !datasets.some((d) => d.id === selected) && (
-              <option value={selected}>
-                저장된 원본 · {selected.slice(0, 8)}
-              </option>
-            )}
-            {datasets.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name ?? d.id.slice(0, 8)} · {d.config?.operation} ·{" "}
-                {fmt(d.resultRows)} 결과 행 · {d.id.slice(0, 8)}
-              </option>
-            ))}
-          </select>
-        </label>
-        {!selected && (
-          <p>
-            완료된 데이터셋이 필요합니다.{" "}
-            <a href="#streams">Data streams에서 수집하기</a>
-          </p>
-        )}
-        {source && (
-          <details>
-            <summary>공통 입력과 변환 조건 확인</summary>
-            <pre>
-              {JSON.stringify(
-                {
-                  inputDatasetId: source.inputDatasetId ?? source.id,
-                  ...source.config,
-                  engine: undefined,
-                },
-                null,
-                2,
-              )}
-            </pre>
-          </details>
-        )}
-        <button
-          className="primary"
-          disabled={busy || !selected}
-          onClick={compare}
-        >
-          3개 엔진 비교 실행
-        </button>
-        {busy && (
-          <button onClick={() => cancel.current?.abort()}>대기 중단</button>
-        )}
-        <p className="mapping-note">
-          동일 서버의 자원 경합을 줄이기 위해 순차 실행합니다. 실행 순서:{" "}
-          {order.map((e) => engineNames[e]).join(" → ")}. 다음 비교에서는 순서를
-          바꿉니다.
-        </p>
-      </section>
-      <div className="vs-grid">
-        {engines.map((engine) => {
-          const r = runs[engine];
-          const timing = r?.execution;
-          return (
-            <section className="panel vs-card" key={engine}>
-              <div className="eyebrow">{r?.state ?? "준비"}</div>
-              <h2>{engineNames[engine]}</h2>
-              <div className="vs-time">
-                {timing ? (timing.totalMs / 1000).toFixed(3) : "—"}{" "}
-                <small>초</small>
-              </div>
-              <p>총 처리 시간</p>
-              <dl>
-                <dt>입력 준비</dt>
-                <dd>
-                  {timing ? fmt(Math.round(timing.preparationMs)) + " ms" : "—"}
-                </dd>
-                <dt>엔진 실행·결과 생성</dt>
-                <dd>
-                  {timing ? fmt(Math.round(timing.engineMs)) + " ms" : "—"}
-                </dd>
-                <dt>전송·조정</dt>
-                <dd>
-                  {timing
-                    ? fmt(
-                        Math.round(
-                          Math.max(
-                            0,
-                            timing.totalMs -
-                              timing.preparationMs -
-                              timing.engineMs,
-                          ),
-                        ),
-                      ) + " ms"
-                    : "—"}
-                </dd>
-                <dt>결과 행</dt>
-                <dd>{r?.rows == null ? "—" : fmt(r.rows)}</dd>
-              </dl>
-              {complete && (
-                <p className="notice">
-                  {timing!.totalMs === best
-                    ? "이번 비교 최단 시간"
-                    : `최단 시간 대비 ${(timing!.totalMs / Math.max(best, 0.001)).toFixed(2)}배`}
-                </p>
-              )}
-              {r?.error && <ErrorBox error={r.error} />}
-              {r?.id && r.state === "완료" && (
-                <a href={`#analysis?dataset=${r.id}`}>
-                  결과 데이터 분석 열기 ↗
-                </a>
-              )}
-              {timing?.details && (
-                <details>
-                  <summary>실행 계획·환경</summary>
-                  <pre>{JSON.stringify(timing.details, null, 2)}</pre>
-                </details>
-              )}
-            </section>
-          );
-        })}
+  const results=run?.results || {}, complete=engines.every(e=>results[e]?.state === "succeeded"), best=complete?Math.min(...engines.map(e=>results[e].totalMs)):0;
+  if(legacy)return <><button onClick={()=>setLegacy(false)}>← Workflow Benchmark</button><LegacyEngineVs/></>;
+  return <div className="source-results">
+    <PageHeading title="Engine Benchmark" description="게시된 워크플로우를 같은 입력으로 재실행하고 세 엔진의 계산 결과와 시간을 비교합니다." actions={<button onClick={()=>setLegacy(true)}>기존 스트림 벤치마크</button>}/>
+    <ErrorBox error={error}/>
+    <section className="source-picker">
+      <div className="source-heading"><strong>벤치마크할 워크플로우</strong><span>연산은 Workflows에서 정의합니다</span></div>
+      <div className="source-fields">
+        <label>워크플로우<select aria-label="벤치마크 워크플로우" disabled={busy} value={workflow} onChange={e=>{setWorkflow(e.target.value);setPrevious("");}}><option value="">선택하세요</option>{workflows.filter(w=>w.published_version).map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
+        <label>입력 준비<select aria-label="벤치마크 실행 선택" disabled={busy||loading} value={previous} onChange={e=>setPrevious(e.target.value)}><option value="">게시 버전 새로 실행</option>{runs.map(r=><option key={r.id} value={r.id}>{when(r.created_at)} · v{r.version} · {r.id.slice(0,8)}</option>)}</select></label>
+        {!previous&&<label>게시 버전<select aria-label="벤치마크 게시 버전" disabled={busy||loading} value={version} onChange={e=>setVersion(e.target.value)}><option value="">선택하세요</option>{versions.map(v=><option key={v.version} value={v.version}>v{v.version}</option>)}</select></label>}
       </div>
-      {complete && (
-        <p className="notice">
-          {sameRows
-            ? "세 엔진의 결과 행 수가 같습니다. 값 전체의 동일성 검증은 별도입니다."
-            : "결과 행 수가 다릅니다. 변환 결과를 확인하세요."}
-        </p>
-      )}
-      <p className="mapping-note">
-        측정 범위: 입력 준비부터 결과 저장까지. Kafka 최초 수집과 서버 대기
-        시간은 제외합니다. Spark는 같은 물리 서버의 워커 2개이며 최초 세션
-        기동·캐시 상태가 결과에 영향을 줍니다. 엔진별 입력 변환·전송 비용도 총
-        시간에 포함됩니다.
-      </p>
-      <section className="panel vs-source">
-        <h2>Apache Drill · 자체 웹 콘솔</h2>
-        <p>SQL Query, Storage, Profiles를 Drill의 원래 화면에서 사용합니다.</p>
-        <a
-          className="text-button"
-          href={drill}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Drill 웹 콘솔 열기 ↗
-        </a>
-      </section>
-    </>
-  );
+      {!previous&&<label className="source-body">워크플로우 실행 입력<textarea aria-label="벤치마크 입력" disabled={busy||loading} spellCheck={false} value={inputs} onChange={e=>setInputs(e.target.value)}/></label>}
+      {!previous&&definition&&<p className="source-note">{definition.nodes.length}개 노드 · {definition.nodes.filter((n:any)=>n.kind==="query").length}개 API · {definition.nodes.filter((n:any)=>["join","merge","filter"].includes(n.kind)).length}개 변환</p>}
+      {previous&&<p className="source-note">선택한 성공 실행에 저장된 정의·입력·Query 결과를 재사용합니다. 현재 초안이나 최신 API를 다시 읽지 않습니다.</p>}
+      <div className="source-actions"><button className="primary" disabled={busy||loading||!workflow||(!previous&&!version)} onClick={benchmark}>{busy?"서버에서 벤치마크 실행 중…":"워크플로우 벤치마크 실행"}</button>{workflow&&<a href={"#workflows?id="+workflow}>워크플로우 편집 ↗</a>}</div>
+      <p className="source-note">새 실행은 API 연계와 전체 워크플로우를 먼저 실행해 기준 결과를 만듭니다. 이후 Query 결과를 고정하고, 각 엔진이 Join·Filter·Merge를 연결 순서대로 직접 계산합니다. 준비 실행 시간은 엔진 비교에서 제외합니다. 화면을 닫아도 서버 실행은 계속됩니다.</p>
+    </section>
+    <div className="source-run-toolbar"><select aria-label="벤치마크 기록" value={runId} onChange={e=>{setRun(null);setRunId(e.target.value);}}><option value="">실행 기록 선택</option>{runId&&!history.some(h=>h.id===runId)&&<option value={runId}>현재 실행</option>}{history.map(h=><option key={h.id} value={h.id}>{when(h.created_at)} · {h.config.workflowName} · v{h.config.version} · {h.status}</option>)}</select>
+    {complete&&<button onClick={()=>download(new Blob([csv(engines.map(e=>({engine:e,workflow:run.config.workflowName,version:run.config.version,runId:run.config.runId,totalMs:results[e].totalMs,engineMs:results[e].engineMs,preparationMs:results[e].preparationMs,rowCount:results[e].rowCount,resultHash:results[e].resultHash,matchesBaseline:results[e].matchesBaseline})))],{type:"text/csv;charset=utf-8"}),"workflow-benchmark.csv")}>비교 CSV</button>}</div>
+    {run&&<section className="source-workload"><h3>{run.config.workflowName} · v{run.config.version} · {run.status}</h3><p className="source-note">표시 중인 기록의 조건입니다. 위 선택을 바꿔도 기존 결과는 변경되지 않습니다.</p>{run.config.baselineNodeMs!=null?<p>기준 실행 노드 합계 {fmt(run.config.baselineNodeMs)} ms · 고정 Query 입력 {fmt(run.config.queryRows)}행</p>:busy&&<p>워크플로우 입력 준비 또는 실행 대기 중…</p>}<details><summary>실행 정의 · 입력 · 기준 실행 ID</summary><pre>{JSON.stringify(run.config,null,2)}</pre></details></section>}
+    <ErrorBox error={run?.error||""}/>
+    <div className="vs-grid">{engines.map(e=>{const r=results[e];return <section className="panel vs-card" key={e}><div className="eyebrow">{r?.state||"대기"}</div><h2>{engineNames[e]}</h2><div className="vs-time">{r?.totalMs!=null?(r.totalMs/1000).toFixed(3):"—"} <small>초</small></div><p>노드별 입력 준비 + 엔진 실행 합계</p><dl><dt>입력 준비</dt><dd>{fmt(r?.preparationMs)} ms</dd><dt>엔진 계산·결과 수집</dt><dd>{fmt(r?.engineMs)} ms</dd><dt>큐 대기 (별도)</dt><dd>{fmt(r?.queueMs)} ms</dd><dt>Output 행</dt><dd>{fmt(r?.rowCount)}</dd></dl>{r?.error&&<ErrorBox error={r.error}/>} {complete&&<p className="notice">{r.totalMs===best?"이번 실행 최단 시간":`최단 시간의 ${(r.totalMs/best).toFixed(2)}배`} · 기준 Output {r.matchesBaseline?"일치":"불일치"}</p>}
+    {r?.nodes&&<details><summary>노드별 실행 결과</summary><div className="table-wrap"><table><thead><tr><th>노드</th><th>유형</th><th>행</th><th>시간 ms</th></tr></thead><tbody>{r.nodes.map((n:any)=><tr key={n.nodeId}><td>{n.nodeId}</td><td>{n.kind}</td><td>{fmt(n.rowCount)}</td><td>{n.state==="captured"?"고정 입력":n.state==="forwarded"?"전달":fmt(n.totalMs)}</td></tr>)}</tbody></table></div></details>}
+    {r?.state==="succeeded"&&<details><summary>환경 · 입력 해시 · Output 미리보기</summary><pre>{JSON.stringify({details:r.details,inputHashes:r.inputHashes,resultHash:r.resultHash,preview:r.preview},null,2)}</pre></details>}</section>})}</div>
+    {complete&&<p className="notice">{results.equivalent?"세 엔진의 전체 Output이 일치합니다.":"엔진 간 Output이 다릅니다. 노드별 결과를 확인하세요."} 숫자는 소수 6자리로 정규화하고 행 순서는 제외하며 중복을 유지합니다.</p>}
+    <p className="source-note">노드마다 결과를 수집하고 다음 입력을 준비하는 실행 방식입니다. 전체 그래프를 단일 SQL로 최적화한 성능과는 다릅니다. API 호출·기준 실행·네트워크 시간은 엔진 시간에 포함하지 않습니다. Query→Output만 있으면 고정 입력 조회를 측정합니다. Spark 워커 2개는 동일 물리 서버에 있습니다. 노드당 최대 1만 행/8MB입니다.</p>
+    <section className="source-workload"><h3>Apache Drill</h3><a href={`${location.protocol}//${location.hostname}:8047`} target="_blank" rel="noreferrer">자체 SQL 콘솔 열기 ↗</a></section>
+  </div>;
 }

@@ -23,7 +23,8 @@ public static class Guard
                 return "transform";
             throw new ArgumentException("Unregistered stream endpoint");
         }
-        var gets = new[] { "/api/dac/get_eds_data", "/api/dac/get_defect_data", "/api/dac/lots", "/api/dac/summary", "/api/dac/chart_samples", "/api/chart/columns" };
+        if (r.Method == "POST" && System.Text.RegularExpressions.Regex.IsMatch(path, @"\A/api/dac/select/[A-Za-z0-9_-]{1,80}\z")) return "dac";
+        var gets = new[] { "/api/dac/queries", "/api/dac/get_eds_data", "/api/dac/get_defect_data", "/api/dac/lots", "/api/dac/summary", "/api/dac/chart_samples", "/api/chart/columns" };
         var posts = new[] { "/api/dac/transform", "/api/chart/scatter" };
         if (!(r.Method == "GET" && gets.Contains(path) || r.Method == "POST" && posts.Contains(path)))
             throw new ArgumentException("Only registered data and chart endpoints are allowed");
@@ -44,9 +45,9 @@ public static class Guard
         foreach (var field in new[] { "source", "x", "y", "xType" })
             if (!c.TryGetProperty(field, out var v) || v.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(v.GetString()) || v.GetString()!.Length > 80)
                 throw new ArgumentException("Missing or invalid " + field);
-        if (c.GetProperty("source").GetString() is not ("eds" or "defects" or "joined" or "transformed"))
+        if (c.GetProperty("source").GetString() is not ("eds" or "defects" or "joined" or "transformed" or "snapshot"))
             throw new ArgumentException("Invalid source");
-        if (c.GetProperty("source").GetString() == "transformed" && (!c.TryGetProperty("datasetId", out var dataset) || dataset.ValueKind != JsonValueKind.String || !Guid.TryParse(dataset.GetString(), out var datasetId) || datasetId == Guid.Empty))
+        if (c.GetProperty("source").GetString() is ("transformed" or "snapshot") && (!c.TryGetProperty("datasetId", out var dataset) || dataset.ValueKind != JsonValueKind.String || !Guid.TryParse(dataset.GetString(), out var datasetId) || datasetId == Guid.Empty))
             throw new ArgumentException("Valid datasetId required for transformed source");
         foreach (var name in new[] { "engine", "datasetEngine" })
             if (c.TryGetProperty(name, out var engine) && engine.ValueKind != JsonValueKind.Null && (engine.ValueKind != JsonValueKind.String || engine.GetString() is not ("duckdb" or "spark" or "datafusion" or "drill")))

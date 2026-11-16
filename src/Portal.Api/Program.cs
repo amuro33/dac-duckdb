@@ -9,12 +9,20 @@ var b = WebApplication.CreateBuilder(args);
 b.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 65536);
 b.Services.AddSingleton(_ => NpgsqlDataSource.Create(b.Configuration.GetConnectionString("Postgres") ?? throw new InvalidOperationException("PostgreSQL is required")));
 b.Services.AddSingleton<Store>();
+b.Services.AddSingleton<WorkflowStore>();
+b.Services.AddSingleton<DataSources>();
+b.Services.AddHostedService<SourceComparisonRunner>();
+b.Services.AddHttpClient("source-engines", c => { c.BaseAddress=new Uri(b.Configuration["EnginesBaseUrl"] ?? "http://analytics-engines:8095/"); c.Timeout=TimeSpan.FromMinutes(4); });
+b.Services.AddSingleton<WorkflowEngine>();
+b.Services.AddHostedService<WorkflowRunner>();
 foreach (var (name, key, fallback) in new[] { ("dac", "DacUrl", "http://dac-worker:8080/"), ("chart", "ChartUrl", "http://chart-worker:8080/") }) b.Services.AddHttpClient(name, c => { c.BaseAddress = new Uri(b.Configuration[key] ?? fallback); c.Timeout = TimeSpan.FromSeconds(240); });
 b.Services.AddProblemDetails();
 b.Services.AddRateLimiter(o => { o.RejectionStatusCode = 429; o.AddConcurrencyLimiter("work", p => { p.PermitLimit = 2; p.QueueLimit = 8; p.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; }); });
 b.Services.AddHttpClient("transform", c => { c.BaseAddress = new Uri(b.Configuration["TransformApiBaseUrl"] ?? "http://data-transform-service:8080/"); c.Timeout = TimeSpan.FromSeconds(240); });
 var app = b.Build();
 await app.Services.GetRequiredService<Store>().Init();
+await app.Services.GetRequiredService<WorkflowStore>().Init();
+await app.Services.GetRequiredService<DataSources>().Init();
 app.UseExceptionHandler();
 app.Use(async (ctx, next) =>
 {
@@ -31,6 +39,9 @@ app.Use(async (ctx, next) =>
     {
         await next(ctx);
     }
+    catch (WorkflowMissing e) { await Results.Problem(e.Message, statusCode: 404).ExecuteAsync(ctx); }
+    catch (WorkflowConflict e) { await Results.Problem(e.Message, statusCode: 409).ExecuteAsync(ctx); }
+    catch (JsonException e) { await Results.Problem(e.Message, statusCode: 400).ExecuteAsync(ctx); }
     catch (ArgumentException e) { await Results.Problem(e.Message, statusCode: 400).ExecuteAsync(ctx); }
     catch (BadHttpRequestException e) { await Results.Problem(e.Message, statusCode: e.StatusCode).ExecuteAsync(ctx); }
 });
@@ -44,6 +55,10 @@ app.MapPost("/api/workspace/views", async (ViewInput v, Store s, CancellationTok
 app.MapPut("/api/workspace/views/{id:guid}", async (Guid id, ViewInput v, Store s, CancellationToken ct) => await s.Update(id, v, ct) ? Results.Ok(new { updated = true }) : Results.Problem("다른 탭에서 변경되었거나 삭제된 뷰입니다. 새로고침 후 다시 시도하세요.", statusCode: 409));
 app.MapDelete("/api/workspace/views/{id:guid}", async (Guid id, int version, Store s, CancellationToken ct) => await s.Delete(id, version, ct) ? Results.NoContent() : Results.Problem("View changed or no longer exists", statusCode: 409));
 app.MapGet("/api/workspace/runs", (int? limit, Store s, CancellationToken ct) => s.Runs(limit ?? 100, ct));
+app.MapGet("/api/workspace/runs/{id:guid}", async (Guid id, Store store, CancellationToken ct) => {
+    var rows = await store.Runs(1, ct, id);
+    return rows.Count == 0 ? Results.NotFound() : Results.Ok(rows[0]);
+});
 app.MapGet("/api/workspace/metrics", (Store s, CancellationToken ct) => s.Metrics(ct));
 app.MapGet("/api/workspace/health", async (IHttpClientFactory factory, Store store, CancellationToken ct) =>
 {
@@ -109,8 +124,9 @@ app.MapPost("/api/execute", async (ExecuteInput input, IHttpClientFactory client
     catch (JsonException) { status = 502; data = JsonSerializer.SerializeToElement(new { detail = "Upstream returned an invalid JSON response" }); }
     catch (TaskCanceledException) when (!ct.IsCancellationRequested) { status = 504; data = JsonSerializer.SerializeToElement(new { detail = "Upstream service timed out" }); }
     var ms = Math.Round(sw.Elapsed.TotalMilliseconds, 1);
-    if (input.Record)
-        await store.Run(id, input, status, ms, count, ct);
+    int? queryVersion = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("query_version", out var version) && version.TryGetInt32(out var v) ? v : null;
+    if (input.Record || input.Path.StartsWith("/api/dac/select/", StringComparison.Ordinal))
+        await store.Run(id, input, status, ms, count, ct, queryVersion);
     return Results.Ok(new
     {
         runId = id,
@@ -133,6 +149,8 @@ app.MapPost("/api/export", async (ExportInput input, IHttpClientFactory clients,
         return Results.Problem("이미지를 생성하지 못했습니다. 데이터와 서비스 상태를 확인하세요.", statusCode: (int)r.StatusCode);
     return Results.File(await r.Content.ReadAsByteArrayAsync(ct), r.Content.Headers.ContentType?.ToString() ?? "application/octet-stream", "waferscope." + input.Format);
 }).RequireRateLimiting("work");
+app.MapWorkflows();
+app.MapSources();
 app.MapFallback("/api/{**path}", () => Results.Problem("Unknown API route", statusCode: 404));
 app.MapFallbackToFile("index.html");
 app.Run();

@@ -3,6 +3,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<IDataRepository, OracleRepository>();
 
 builder.Services.AddSingleton<BenchmarkRepository>();
+builder.Services.AddSingleton<StoredQueries>();
 builder.Services.AddHttpClient("transform", c => { c.BaseAddress = new Uri(builder.Configuration["TransformApiBaseUrl"] ?? "http://data-transform-service:8080/"); c.Timeout = TimeSpan.FromSeconds(180); });
 builder.Services.AddProblemDetails();
 var app = builder.Build();
@@ -23,6 +24,14 @@ app.MapPost("/api/dac/transform", async (TransformRequest request, IHttpClientFa
     return Results.Content(await response.Content.ReadAsStringAsync(ct), "application/json", statusCode: (int)response.StatusCode);
 });
 app.MapGet("/api/dac/chart_samples", async (string? source, int size, int? limit, string? lotId, int? afterId, BenchmarkRepository repo, CancellationToken ct) => await repo.Read(source ?? "eds", size, limit ?? size, lotId, ct, afterId ?? 0));
+app.MapGet("/api/dac/queries", async (StoredQueries queries, CancellationToken ct) => (await queries.List(ct)).Select(q => new {
+    query_id = q.QueryId, database_name = q.DatabaseName, name = q.Name, description = q.Description, query_version = q.Version,
+    route = "/api/dac/select/" + q.QueryId, method = "POST", default_body = q.DefaultBody, bindings = q.Bindings
+}));
+app.MapPost("/api/dac/select/{query_id}", async (string query_id, System.Text.Json.JsonElement body, StoredQueries queries, CancellationToken ct) => {
+    var result = await queries.Execute(query_id, body, ct);
+    return result is null ? Results.Problem("Unknown or disabled query_id", statusCode:404) : Results.Ok(result);
+});
 app.Run();
 public partial class Program
 {

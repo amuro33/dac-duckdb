@@ -5,6 +5,8 @@ namespace Portal.Api.Tests;
 
 public class ContractTests
 {
+    [Fact] public void SnapshotViewRequiresStableIdentity() => Assert.Throws<ArgumentException>(() => Guard.Config(Config("snapshot")));
+    [Fact] public void SnapshotViewAcceptsCapturedSource() => Guard.Config(JsonSerializer.SerializeToElement(new { source="snapshot", datasetId=Guid.NewGuid(), x="event_time", y="measurement", xType="date" }));
     JsonElement Config(string source = "eds", int? size = null) => JsonSerializer.SerializeToElement(new { source, x = "waferId", y = "yieldPct", xType = "string", sampleSize = size });
     [Theory]
     [InlineData("/api/dac/get_eds_data?limit=100", "GET", "dac")]
@@ -66,4 +68,9 @@ public class StreamingRoutesTests
     [Theory][InlineData("duckdb")][InlineData("spark")][InlineData("drill")][InlineData("datafusion")]
     public void SavedViewsRetainSupportedEngines(string engine) => Guard.Config(JsonSerializer.SerializeToElement(new { source="joined",x="inspected_at",y="yield_pct",xType="date",engine }));
     [Fact] public void UnknownSavedEngineRejected() => Assert.Throws<ArgumentException>(() => Guard.Config(JsonSerializer.SerializeToElement(new { source="joined",x="inspected_at",y="yield_pct",xType="date",engine="fake" })));
+
+    [Fact] public void StoredQueryCatalogAllowed() => Assert.Equal("dac", Guard.Target(new("/api/dac/queries")));
+    [Fact] public void StoredQueryExecutionAllowed() => Assert.Equal("dac", Guard.Target(new("/api/dac/select/EDS_BY_LOT", "POST")));
+    [Theory][InlineData("/api/dac/select/../admin")][InlineData("/api/dac/select/a/b")][InlineData("/api/dac/select/")]
+    public void InvalidQueryRouteRejected(string path) => Assert.Throws<ArgumentException>(() => Guard.Target(new(path,"POST")));
 }

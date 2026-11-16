@@ -3,13 +3,24 @@ namespace Chart.Worker;
 
 public sealed class DataApiClient(HttpClient http, IConfiguration? config = null)
 {
-    public static readonly string[] Sources = ["eds", "defects", "joined", "transformed"];
+    public static readonly string[] Sources = ["eds", "defects", "joined", "transformed", "snapshot"];
     public async Task<Dataset> Read(string source, string? lotId, CancellationToken ct, int? sampleSize = null, int pageSize = 10000, int afterId = 0, Guid? datasetId = null)
     {
         if (!Sources.Contains(source))
             throw new ArgumentException("source must be eds, defects or joined");
         if (lotId?.Length > 40)
             throw new ArgumentException("lotId is too long");
+        if (source == "snapshot")
+        {
+            if (datasetId is null || datasetId == Guid.Empty) throw new ArgumentException("datasetId required");
+            var portal = config?["PortalApiBaseUrl"] ?? "http://waferscope:8080/";
+            using var snapshotResponse = await http.GetAsync(new Uri(new Uri(portal), $"api/sources/{datasetId}/rows?offset={afterId}&limit={pageSize}"), ct);
+            if (snapshotResponse.StatusCode == System.Net.HttpStatusCode.NotFound) throw new ArgumentException("데이터 소스를 찾을 수 없습니다.");
+            snapshotResponse.EnsureSuccessStatusCode();
+            using var doc = await JsonDocument.ParseAsync(await snapshotResponse.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            var root = doc.RootElement;
+            return new(root.GetProperty("data").Deserialize<List<Dictionary<string,JsonElement>>>()??[], root.GetProperty("columns").Deserialize<List<ColumnInfo>>(new JsonSerializerOptions(JsonSerializerDefaults.Web))??[],root.GetProperty("totalRows").GetInt32());
+        }
         if (source == "transformed")
         {
             if (datasetId is null || datasetId == Guid.Empty)
@@ -56,6 +67,7 @@ public sealed class DataApiClient(HttpClient http, IConfiguration? config = null
     }
     public async IAsyncEnumerable<Dataset> ReadBatches(string source, string? lotId, int? sampleSize, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct, Guid? datasetId = null)
     {
+        if (source == "snapshot") { yield return await Read(source, null, ct, null, 10000, 0, datasetId); yield break; }
         if (sampleSize is null && source != "transformed")
         {
             yield return await Read(source, lotId, ct);

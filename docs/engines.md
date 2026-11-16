@@ -1,10 +1,10 @@
-# 분석 엔진 — 현재 Engine VS와 기존 스트림 경로
+# 분석 엔진 — 현재 Engine Benchmark와 기존 스트림 경로
 
 2026-11-13 구현. **네 엔진이 실제로 SQL 변환을 실행**합니다. 엔진 이름만 바꾸거나 실패한 작업을 DuckDB로 대신 실행하지 않습니다.
 
 ## 현재 화면에서 사용하기
 
-**Engine VS**에서 워크플로우/API/저장 소스를 고르고 집계·필터·Join·Merge를 실행합니다. DuckDB·Spark·DataFusion 세 결과와 시간을 한 화면에서 비교합니다. 입력 B도 API 또는 워크플로우를 사용할 수 있습니다. [현재 소스 계약·측정 범위](data-sources.md) · [5분 데모](portfolio-guide.md)
+**Engine Benchmark**에서 게시된 워크플로우와 inputs 또는 성공 실행을 선택합니다. 세 엔진이 고정 Query 결과를 입력으로 워크플로우 변환 그래프를 직접 실행합니다. 연산은 Workflows에서 정의하며 벤치마크 화면에서 별도로 구성하지 않습니다. [현재 워크플로우 벤치마크 계약](workflow-benchmark.md) · [5분 데모](portfolio-guide.md)
 
 Drill은 같은 화면 하단의 **자체 SQL 콘솔 열기**로 접근합니다. Apache DataFusion은 자체 웹 UI가 없는 실행 엔진으로 VS에 포함합니다.
 

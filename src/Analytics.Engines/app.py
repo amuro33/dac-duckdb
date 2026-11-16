@@ -266,3 +266,28 @@ def download(job_id: str, index: int):
     if index < 0 or index >= len(files):
         raise HTTPException(404, "Unknown part")
     return FileResponse(directory / "result" / files[index]["name"], media_type="application/octet-stream")
+
+@app.post("/source-compare")
+async def source_compare(request: Request):
+    from source_compare import execute as compare_sources
+    raw = await request.body()
+    if len(raw) > 20_000_000:
+        raise HTTPException(413, "Source request exceeds 20MB")
+    try:
+        payload = json.loads(raw, parse_float=__import__('decimal').Decimal)
+        return await run_in_threadpool(compare_sources, payload, ROOT, execution_lock, get_spark)
+    except (ValueError, KeyError, TypeError) as e:
+        raise HTTPException(400, str(e)[:1000])
+    except Exception as e:
+        raise HTTPException(502, type(e).__name__ + ': ' + str(e)[:1000])
+
+@app.post("/workflow-benchmark")
+async def workflow_benchmark(request: Request):
+    from workflow_benchmark import execute
+    raw = await request.body()
+    if len(raw)>20_000_000:raise HTTPException(413,"Workflow benchmark input exceeds 20MB")
+    try:
+        payload=json.loads(raw,parse_float=__import__('decimal').Decimal)
+        return await run_in_threadpool(execute,payload,ROOT,execution_lock,get_spark)
+    except (ValueError,KeyError,TypeError) as e:raise HTTPException(400,str(e)[:1000])
+    except Exception as e:raise HTTPException(502,type(e).__name__+': '+str(e)[:1000])

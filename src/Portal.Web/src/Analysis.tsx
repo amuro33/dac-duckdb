@@ -215,7 +215,7 @@ export function Analysis({
         const d = await r.json();
         throw Error(d.detail ?? "내보내기 실패");
       }
-      download(await r.blob(), `waferscope-${index + 1}.${format}`);
+      download(await r.blob(), `api-content-builder-${index + 1}.${format}`);
       notify(`${format.toUpperCase()} 파일을 저장했습니다.`);
     } catch (e: any) {
       setError(e.message);
@@ -275,7 +275,7 @@ export function Analysis({
   return (
     <>
       <PageHeading
-        title="웨이퍼 분석"
+        title="데이터 분석"
         description="컬럼을 선택하고 분석을 실행하세요. 설정과 결과를 명확히 구분합니다."
         actions={
           <>
@@ -310,6 +310,7 @@ export function Analysis({
               {dirty ? "변경됨" : "적용됨"}
             </span>
           </div>
+          {draft.source !== "snapshot" ? <>
           <label>
             데이터 소스
             <select
@@ -358,7 +359,7 @@ export function Analysis({
             />
           ) : (
             <p className="mapping-note">
-              원본 API 직접 조회입니다. 엔진별 시간 비교는 Engine VS에서 실행할 수 있습니다.
+              원본 API 직접 조회입니다. 워크플로우 엔진 비교는 Engine Benchmark에서 실행할 수 있습니다.
             </p>
           )}
           <label>
@@ -380,6 +381,7 @@ export function Analysis({
               {draft.datasetId}
             </p>
           )}
+          </> : <p className="mapping-note">워크플로우 / API의 고정된 결과입니다. 위에서 소스를 변경할 수 있습니다.</p>}
           <div className="section-divider">GROUPING</div>
           {select("category", "Category · 독립 차트", true)}
           {select("legend", "Legend · 시리즈", true)}
@@ -506,7 +508,7 @@ export function Analysis({
           ) : (
             <button
               className="text-button full"
-              onClick={() => setDraft(applied ?? initial)}
+              onClick={() => setDraft(applied ?? start)}
             >
               <RotateCcw size={12} />
               설정 되돌리기
@@ -674,7 +676,7 @@ export function Analysis({
                         ],
                         { type: "text/csv" },
                       ),
-                      "waferscope-points.csv",
+                      "api-content-builder-points.csv",
                     )
                   }
                 >
@@ -808,7 +810,7 @@ export function Analysis({
       {save && (
         <Modal title="분석 뷰 저장" onClose={() => !saving && setSave(false)}>
           <p className="muted">
-            마지막으로 실행한 설정을 저장합니다. 데이터는 열 때 다시 조회합니다.
+            {draft.source === "snapshot" ? "마지막으로 실행한 설정과 고정된 소스 ID를 저장합니다. 다시 열어도 원본 API/워크플로우를 재실행하지 않습니다." : "마지막으로 실행한 설정을 저장합니다. 데이터는 열 때 다시 조회합니다."}
           </p>
           <ErrorBox error={saveError} />
           <label>

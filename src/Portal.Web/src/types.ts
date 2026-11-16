@@ -52,19 +52,13 @@ export type Run = {
   request: unknown;
   status: number;
   durationMs: number;
+  queryVersion?: number | null;
   rowCount: number | null;
   createdAt: string;
 };
 export type Column = { name: string; type: string; nullable: boolean };
 export const initial: Config = {
-  source: "eds",
-  category: "lotId",
-  legend: "product",
-  x: "inspectedAt",
-  y: "yieldPct",
-  xType: "date",
-  lotId: "LOT-101",
-  sampleSize: null,
+  source: "snapshot", category: null, legend: null, x: "", y: "", xType: "date", lotId: null, sampleSize: null,
 };
 export const large: Config = {
   source: "eds",

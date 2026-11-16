@@ -1,26 +1,26 @@
 /* Request workbench: compact, independently scrolling panes. */
-.console-shell {
+.rail-shell {
   --side: 44px;
 }
-.console-shell .sidebar {
+.rail-shell .sidebar {
   width: 44px;
   top: 40px;
   padding-top: 4px;
 }
-.console-shell .sidebar .logo,
-.console-shell .workspace-label,
-.console-shell .sidebar nav a span,
-.console-shell .sidebar-bottom span,
-.console-shell .collapse-toggle,
-.console-shell .breadcrumbs {
+.rail-shell .sidebar .logo,
+.rail-shell .workspace-label,
+.rail-shell .sidebar nav a span,
+.rail-shell .sidebar-bottom span,
+.rail-shell .collapse-toggle,
+.rail-shell .breadcrumbs {
   display: none;
 }
-.console-shell .sidebar nav a {
+.rail-shell .sidebar nav a {
   justify-content: center;
   padding: 8px;
   margin: 2px 4px;
 }
-.console-shell .topbar {
+.rail-shell .topbar {
   position: fixed;
   top: 0;
   left: 0;
@@ -61,7 +61,7 @@
   margin: 0;
   max-width: none;
 }
-.console-shell .main-shell {
+.rail-shell .main-shell {
   padding-top: 40px;
 }
 .console-shell .app-footer {
@@ -519,10 +519,10 @@
   .console-brand {
     font-size: 11px;
   }
-  .console-shell .command-button {
+  .rail-shell .command-button {
     display: none;
   }
-  .console-shell .topbar {
+  .rail-shell .topbar {
     gap: 8px;
   }
   .console-environment {
@@ -576,7 +576,7 @@
   .console-environment {
     max-width: 126px;
   }
-  .console-shell .avatar {
+  .rail-shell .avatar {
     display: none;
   }
   .acb-section-head {
@@ -592,15 +592,15 @@
     gap: 4px;
   }
 }
-.app.console-shell .main-shell {
+.app.rail-shell .main-shell {
   width: calc(100% - 44px);
   margin-left: 44px;
 }
-.app.console-shell .sidebar nav {
+.app.rail-shell .sidebar nav {
   padding: 4px 0;
   align-items: center;
 }
-.app.console-shell .sidebar nav a {
+.app.rail-shell .sidebar nav a {
   width: 34px;
   margin: 2px 0;
 }

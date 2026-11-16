@@ -10,8 +10,6 @@ import {
   HelpCircle,
   X,
   Command,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import { EngineVs } from "./EngineVs";
 import { Streams } from "./Streams";
@@ -44,7 +42,6 @@ export default function App() {
     [command, setCommand] = useState(false),
     [help, setHelp] = useState(false),
     [search, setSearch] = useState(""),
-    [collapsed, setCollapsed] = useState(false),
     [error, setError] = useState("");
   const [analysisTab, setAnalysisTab] = useState("run");
   const analysisLocation = useRef("");
@@ -161,7 +158,7 @@ export default function App() {
   }
   const current = pages.find((p) => p[0] === page) ?? pages[0];
   return (
-    <div className={"app " + (collapsed ? "collapsed " : "") + (page === "console" ? "console-shell" : "")}>
+    <div className={"app rail-shell " + (page === "console" ? "console-shell" : "")}>
       <aside className="sidebar">
         <a className="logo" href="#console" aria-label="API Content Builder">
           <img src="/favicon.svg" alt="" />
@@ -181,7 +178,8 @@ export default function App() {
               key={id}
               href={"#" + id}
               className={page === id ? "active" : ""}
-              title={ko}
+              title={en + " · " + ko}
+              aria-label={en}
               aria-current={page === id ? "page" : undefined}
             >
               <Icon size={18} />
@@ -190,7 +188,7 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button onClick={() => setHelp(true)}>
+          <button aria-label="워크스페이스 안내" title="워크스페이스 안내" onClick={() => setHelp(true)}>
             <HelpCircle size={17} />
             <span>워크스페이스 안내</span>
           </button>
@@ -202,18 +200,7 @@ export default function App() {
       </aside>
       <div className="main-shell">
         <header className="topbar">
-          {page === "console" && <><a className="console-brand" href="#console"><img src="/favicon.svg" alt=""/>API Content Builder</a><span className="console-workspace">W · Engineering lab</span></>}
-          <button
-            className="icon-button collapse-toggle"
-            aria-label="사이드바 전환"
-            onClick={() => setCollapsed((v) => !v)}
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={17} />
-            ) : (
-              <PanelLeftClose size={17} />
-            )}
-          </button>
+          {<><a className="console-brand" href="#console"><img src="/favicon.svg" alt=""/>API Content Builder</a><span className="console-workspace">W · Engineering lab</span></>}
           <div className="breadcrumbs">
             Workspace
             <ChevronRight size={12} />

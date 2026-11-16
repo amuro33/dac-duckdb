@@ -142,7 +142,7 @@ export default function App() {
         <a className="logo" href="#overview">
           <img src="/favicon.svg" alt="" />
           <span>
-            WaferScope<small>Data workbench</small>
+            API Content<small>Builder</small>
           </span>
         </a>
         <div className="workspace-label">
@@ -225,7 +225,7 @@ export default function App() {
           {page === "console" && <Console key={session} start={consoleStart} />}{" "}
           {page === "activity" && <Activity replay={replay} />}
           <footer className="app-footer">
-            <span>WaferScope / Engineering workspace</span>
+            <span>API Content Builder / Workspace</span>
             <span>데이터 · 분석 · 재현</span>
           </footer>
         </main>
@@ -264,7 +264,7 @@ export default function App() {
         </Modal>
       )}
       {help && (
-        <Modal title="WaferScope 워크스페이스" onClose={() => setHelp(false)}>
+        <Modal title="API Content Builder" onClose={() => setHelp(false)}>
           <p>
             반도체 검사·결함 데이터를 조회하고, 분석 설정을 저장하고, 결과를
             재현하는 로컬 개발 애플리케이션입니다.

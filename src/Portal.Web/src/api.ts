@@ -24,7 +24,7 @@ export async function execute(
   record = true,
   signal?: AbortSignal,
 ) {
-  return json<{ status: number; data: any; durationMs: number; runId: string }>(
+  return json<{ status: number; data: any; durationMs: number; runId: string; rowCount?: number; responseBytes?: number; responseHeaders?: Record<string, string> }>(
     "/api/execute",
     {
       method: "POST",

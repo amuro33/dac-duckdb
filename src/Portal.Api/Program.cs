@@ -104,6 +104,7 @@ app.MapPost("/api/execute", async (ExecuteInput input, IHttpClientFactory client
     int status;
     JsonElement data;
     int? count = null;
+    var responseHeaders = new Dictionary<string, string>();
     try
     {
         using var message = new HttpRequestMessage(new HttpMethod(input.Method), input.Path);
@@ -111,6 +112,8 @@ app.MapPost("/api/execute", async (ExecuteInput input, IHttpClientFactory client
             message.Content = new StringContent(input.Body?.GetRawText() ?? "{}", Encoding.UTF8, "application/json");
         using var response = await clients.CreateClient(target).SendAsync(message, ct);
         status = (int)response.StatusCode;
+        foreach (var header in response.Content.Headers)
+            responseHeaders[header.Key] = string.Join(", ", header.Value);
         data = await UpstreamJson.Read(response.Content, ct);
         if (data.ValueKind == JsonValueKind.Array)
             count = data.GetArrayLength();
@@ -133,6 +136,8 @@ app.MapPost("/api/execute", async (ExecuteInput input, IHttpClientFactory client
         status,
         durationMs = ms,
         rowCount = count,
+        responseHeaders,
+        responseBytes = Encoding.UTF8.GetByteCount(data.GetRawText()),
         data
     });
 }).RequireRateLimiting("work");

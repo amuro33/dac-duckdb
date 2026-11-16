@@ -1,9 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Copy, Check, Terminal, RefreshCw } from "lucide-react";
-import { execute, data, json, fmt, when } from "./api";
-import { PageHeading, ErrorBox } from "./ui";
+import {
+  Play,
+  Plus,
+  X,
+  ChevronDown,
+  Save,
+  GitBranch,
+  Pin,
+  Download,
+  RefreshCw,
+} from "lucide-react";
+import { execute, data, json, fmt, when, csv, download } from "./api";
+import { ErrorBox } from "./ui";
 import type { Run } from "./types";
+import { objectBody, bindingValue, responseRows } from "./console-model";
+import "./console.css";
 export type ConsoleRequest = { path: string; method: string; body?: unknown };
+type Binding = {
+  name: string;
+  type: string;
+  nullable: boolean;
+  min?: number;
+  max?: number;
+};
 type Query = {
   query_id: string;
   database_name: string;
@@ -13,417 +32,914 @@ type Query = {
   route: string;
   method: string;
   default_body: Record<string, unknown>;
-  bindings: {
-    name: string;
-    type: string;
-    nullable: boolean;
-    min?: number;
-    max?: number;
-  }[];
+  bindings: Binding[];
 };
-export function Console({ start }: { start?: ConsoleRequest }) {
-  const [queries, setQueries] = useState<Query[]>([]),
-    [catalogBusy, setCatalogBusy] = useState(true),
-    [search, setSearch] = useState("");
-  const [req, setReq] = useState<ConsoleRequest>(
-      start ?? { path: "", method: "POST" },
-    ),
-    [body, setBody] = useState(JSON.stringify(start?.body ?? {}, null, 2)),
-    [busy, setBusy] = useState(false),
-    [result, setResult] = useState<any>(),
-    [error, setError] = useState(""),
-    [copied, setCopied] = useState(false),
-    [responseTab, setResponseTab] = useState("json");
-  const [history, setHistory] = useState<Run[]>([]),
-    [historyError, setHistoryError] = useState(""),
-    [historyId, setHistoryId] = useState("");
-  const abort = useRef<AbortController | null>(null);
-  const selected = queries.find((q) => q.route === req.path);
-  function select(r: ConsoleRequest, id = "") {
-    setReq(r);
-    setBody(JSON.stringify(r.body ?? {}, null, 2));
-    setError("");
-    setResult(undefined);
-    setHistoryId(id);
+type Source = {
+  id: string;
+  name: string;
+  kind: string;
+  row_count: number;
+  created_at: string;
+};
+type Tab = {
+  id: string;
+  path: string;
+  method: string;
+  body: string;
+  source?: Source;
+  result?: any;
+  busy?: boolean;
+  error?: string;
+  notice?: string;
+  historyId?: string;
+  requestTab: string;
+  responseTab: string;
+};
+const storageKey = "acb-console-drafts-v1";
+function newTab(r: ConsoleRequest): Tab {
+  return {
+    id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    path: r.path,
+    method: r.method,
+    body: JSON.stringify(r.body ?? {}, null, 2),
+    requestTab: "Body",
+    responseTab: "Table",
+  };
+}
+function restore(): Tab[] {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(storageKey) ?? "[]");
+    return Array.isArray(value)
+      ? value
+          .filter(
+            (t) =>
+              typeof t.path === "string" &&
+              typeof t.body === "string" &&
+              ["POST", "GET"].includes(t.method),
+          )
+          .slice(0, 20)
+          .map((t) => ({
+            ...newTab({ path: t.path, method: t.method }),
+            body: t.body,
+          }))
+      : [];
+  } catch {
+    return [];
   }
-  async function loadHistory() {
-    try {
-      setHistory(
-        (await json<Run[]>("/api/workspace/runs?limit=200")).filter((r) =>
-          r.path.startsWith("/api/dac/select/"),
-        ),
-      );
-      setHistoryError("");
-    } catch (e: any) {
-      setHistoryError(e.message);
-    }
+}
+export function Console({ start }: { start?: ConsoleRequest }) {
+  const [tabs, setTabs] = useState<Tab[]>(() =>
+    start ? [newTab(start)] : restore(),
+  );
+  const [active, setActive] = useState("");
+  const [queries, setQueries] = useState<Query[]>([]),
+    [sources, setSources] = useState<Source[]>([]),
+    [history, setHistory] = useState<Run[]>([]);
+  const [search, setSearch] = useState(""),
+    [side, setSide] = useState("Queries"),
+    [loadError, setLoadError] = useState(""),
+    [loading, setLoading] = useState(true),
+    [menu, setMenu] = useState(false);
+  const controllers = useRef(new Map<string, AbortController>());
+  const tab = tabs.find((t) => t.id === active) ?? tabs[0];
+  const selected = queries.find((q) => q.route === tab?.path);
+  const patch = (id: string, value: Partial<Tab>) =>
+    setTabs((ts) => ts.map((t) => (t.id === id ? { ...t, ...value } : t)));
+  async function refresh() {
+    const [h, s] = await Promise.all([
+      json<Run[]>("/api/workspace/runs?limit=200"),
+      json<Source[]>("/api/sources"),
+    ]);
+    setHistory(h.filter((r) => r.path.startsWith("/api/dac/select/")));
+    setSources(s);
   }
   useEffect(() => {
     const a = new AbortController();
     data("/api/dac/queries", "GET", undefined, false, a.signal)
-      .then((items: Query[]) => {
-        setQueries(items);
-        if (!start && items.length) {
-          const first =
-            items.find((q) => q.query_id === "EDS_BY_LOT") ?? items[0];
-          select({
-            path: first.route,
-            method: "POST",
-            body: first.default_body,
-          });
-        }
+      .then((qs: Query[]) => {
+        setQueries(qs);
+        const first = qs.find((q) => q.query_id === "EDS_BY_LOT") ?? qs[0];
+        setTabs((ts) =>
+          ts.length
+            ? ts
+            : first
+              ? [
+                  newTab({
+                    path: first.route,
+                    method: "POST",
+                    body: first.default_body,
+                  }),
+                ]
+              : [],
+        );
       })
       .catch((e) => {
-        if (!a.signal.aborted) setError(e.message);
+        if (!a.signal.aborted) setLoadError(e.message);
       })
-      .finally(() => {
-        if (!a.signal.aborted) setCatalogBusy(false);
-      });
-    loadHistory();
+      .finally(() => setLoading(false));
+    refresh().catch((e) => setLoadError(e.message));
     return () => {
       a.abort();
-      abort.current?.abort();
+      controllers.current.forEach((c) => c.abort());
     };
   }, []);
-  async function send() {
-    if (busy || !req.path) return;
-    setError("");
-    let parsed;
+  useEffect(() => {
     try {
-      if (req.method === "POST") {
-        parsed = JSON.parse(body);
-        if (
-          parsed === null ||
-          Array.isArray(parsed) ||
-          typeof parsed !== "object"
-        )
-          throw Error();
-      }
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(
+          tabs
+            .filter((t) => !t.source)
+            .map(({ path, method, body }) => ({ path, method, body })),
+        ),
+      );
     } catch {
-      setError("JSON 객체 형식의 요청 본문을 입력해 주세요.");
+      setLoadError(
+        "임시 저장 공간이 부족합니다. 요청 바디를 파일로 저장하세요.",
+      );
+    }
+  }, [tabs]);
+  function open(r: ConsoleRequest, historyId?: string, duplicate = false) {
+    const found =
+      !duplicate &&
+      !historyId &&
+      tabs.find((t) => !t.source && t.path === r.path);
+    if (found) {
+      setActive(found.id);
+      return;
+    }
+    if (tabs.length >= 20) {
+      setLoadError("요청 탭은 최대 20개입니다. 사용하지 않는 탭을 닫으세요.");
+      return;
+    }
+    const t = { ...newTab(r), historyId };
+    setTabs((ts) => [...ts, t]);
+    setActive(t.id);
+    setMenu(false);
+  }
+  async function openSource(s: Source) {
+    const existing = tabs.find((t) => t.source?.id === s.id);
+    if (existing) {
+      setActive(existing.id);
+      return;
+    }
+    if (tabs.length >= 20) {
+      setLoadError("요청 탭은 최대 20개입니다.");
+      return;
+    }
+    const t = {
+      ...newTab({ path: "/api/sources/" + s.id, method: "GET" }),
+      source: s,
+      busy: true,
+    };
+    setTabs((ts) => [...ts, t]);
+    setActive(t.id);
+    const a = new AbortController();
+    controllers.current.set(t.id, a);
+    try {
+      const result = await json(t.path + "/rows?limit=10000", {
+        signal: a.signal,
+      });
+      patch(t.id, { result: { data: result }, busy: false });
+    } catch (e: any) {
+      patch(t.id, {
+        busy: false,
+        error: a.signal.aborted ? "불러오기를 취소했습니다." : e.message,
+      });
+    } finally {
+      controllers.current.delete(t.id);
+    }
+  }
+  async function send(pin = false) {
+    if (!tab || tab.busy || tab.source) return;
+    const t = tab;
+    let body;
+    try {
+      body = t.method === "POST" ? objectBody(t.body) : undefined;
+    } catch (e: any) {
+      patch(t.id, { error: e.message });
       return;
     }
     const a = new AbortController();
-    abort.current = a;
-    setBusy(true);
-    setResult(undefined);
+    controllers.current.set(t.id, a);
+    setMenu(false);
+    patch(t.id, { busy: true, error: "", notice: "", result: undefined });
     try {
-      setResult(await execute(req.path, req.method, parsed, true, a.signal));
-      await loadHistory();
+      if (pin) {
+        if (!selected) throw Error("저장 쿼리를 선택하세요.");
+        const s = await json<Source>("/api/sources", {
+          method: "POST",
+          body: JSON.stringify({
+            kind: "api",
+            queryId: selected.query_id,
+            body,
+          }),
+          signal: a.signal,
+        });
+        patch(t.id, { notice: `새로 조회한 결과를 저장했습니다: ${s.name}` });
+        await refresh();
+        await openSource(s);
+      } else {
+        const result = await execute(t.path, t.method, body, true, a.signal);
+        patch(t.id, { result });
+        await refresh();
+      }
     } catch (e: any) {
-      if (!a.signal.aborted) setError(e.message);
+      patch(t.id, {
+        error: a.signal.aborted
+          ? "요청을 취소했습니다. 서버 실행 이력은 새로고침으로 확인하세요."
+          : e.message,
+      });
     } finally {
-      if (abort.current === a) setBusy(false);
+      controllers.current.delete(t.id);
+      patch(t.id, { busy: false });
     }
   }
-  const rows = result
-    ? Array.isArray(result.data)
-      ? result.data
-      : Array.isArray(result.data?.data)
-        ? result.data.data
-        : []
-    : [];
-  const keys =
-    rows[0] && typeof rows[0] === "object" ? Object.keys(rows[0]) : [];
-  return (
-    <>
-      <PageHeading
-        title="DAC 쿼리 콘솔"
-        description="저장된 query_id 선택 → 기본 바디 수정 → 실행 → History에서 다시 사용"
-      />
-      <div className="console-layout">
-        <aside className="request-list">
-          <h3>저장 쿼리</h3>
-          <input
-            className="catalog-search"
-            aria-label="저장 쿼리 검색"
-            placeholder="query_id / 이름 검색"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {catalogBusy && <p role="status">쿼리 목록을 불러오는 중…</p>}
-          {!catalogBusy && !queries.length && (
-            <p>등록된 쿼리가 없거나 목록을 불러오지 못했습니다.</p>
-          )}
-          {queries
-            .filter((q) =>
-              (q.query_id + q.name)
-                .toLowerCase()
-                .includes(search.toLowerCase()),
-            )
-            .map((q) => (
-              <button
-                key={q.query_id}
-                disabled={busy}
-                className={req.path === q.route ? "selected" : ""}
-                onClick={() =>
-                  select({
-                    path: q.route,
-                    method: "POST",
-                    body: q.default_body,
-                  })
-                }
-              >
-                <span className="post">POST</span>
-                <span className="query-list-label">
-                  <strong className="query-id">{q.query_id}</strong>
-                  <small className="query-name">{q.name}</small>
-                </span>
-              </button>
-            ))}
-          <p>
-            ⌘ / Ctrl + Enter
-            <br />
-            요청 편집기에서 실행
-          </p>
-        </aside>
-        <div className="console-work">
-          {selected && (
-            <div className="query-description">
-              <strong className="query-id">{selected.query_id}</strong>
-              <span className="query-name">{selected.name}</span>
-              <p>{selected.description}</p>
-              <small>
-                {selected.database_name} · SQL 버전{" "}
-                {selected.query_version}
-              </small>
-            </div>
-          )}
-          {start && !selected && !catalogBusy && (
-            <p className="notice">이력에서 불러온 기존 API 요청입니다.</p>
-          )}
-          <div className="request-bar">
-            <span className="post request-method">{req.method}</span>
+  function updateBody(value: string) {
+    if (tab)
+      patch(tab.id, {
+        body: value,
+        notice: "",
+        historyId: undefined,
+        result: undefined,
+      });
+  }
+  function seed(target: "workflow" | "analysis") {
+    if (!tab || !selected) return;
+    try {
+      sessionStorage.setItem(
+        target === "workflow" ? "workflow-query-seed" : "analysis-api-seed",
+        JSON.stringify({
+          queryId: selected.query_id,
+          body: objectBody(tab.body),
+        }),
+      );
+      location.hash = target === "workflow" ? "workflows" : "analysis?api=1";
+    } catch (e: any) {
+      patch(tab.id, { error: e.message });
+    }
+  }
+  let parsed: Record<string, unknown> | undefined;
+  try {
+    if (tab) parsed = objectBody(tab.body);
+  } catch {}
+  function bindings() {
+    return (
+      <div className="acb-bindings">
+        {selected?.bindings.map((b) => (
+          <label key={b.name}>
+            <code title={`${b.type}${b.nullable ? " · null 허용" : ""}`}>
+              {b.name}
+            </code>
             <input
-              aria-label="API 경로"
-              readOnly
-              value={req.path}
-              placeholder="왼쪽에서 저장 쿼리를 선택하세요"
+              aria-label={`바인딩 ${b.name}`}
+              key={
+                tab!.id + ":" + b.name + ":" + JSON.stringify(parsed?.[b.name])
+              }
+              defaultValue={
+                parsed?.[b.name] === null
+                  ? "null"
+                  : String(parsed?.[b.name] ?? "")
+              }
+              disabled={!parsed || tab?.busy}
+              onBlur={(e) => {
+                try {
+                  const value = bindingValue(
+                    e.target.value,
+                    b.type,
+                    b.nullable,
+                  );
+                  if (
+                    typeof value === "number" &&
+                    ((b.min != null && value < b.min) ||
+                      (b.max != null && value > b.max))
+                  )
+                    throw Error(
+                      `${b.name}: ${b.min ?? "—"} ~ ${b.max ?? "—"} 범위입니다.`,
+                    );
+                  if (parsed && value !== parsed[b.name])
+                    updateBody(
+                      JSON.stringify({ ...parsed, [b.name]: value }, null, 2),
+                    );
+                  patch(tab!.id, { error: "" });
+                } catch (err: any) {
+                  patch(tab!.id, { error: err.message });
+                  e.target.value = String(parsed?.[b.name] ?? "null");
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
             />
+          </label>
+        ))}
+        {!parsed && <p>Body의 JSON을 먼저 수정하세요.</p>}
+      </div>
+    );
+  }
+  const rows = responseRows(tab?.result?.data);
+  const keys = tab?.result?.data?.columns?.map((c: any) => c.name) ?? [
+    ...new Set(rows.flatMap(Object.keys)),
+  ];
+  return (
+    <div
+      className="api-console"
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          void send();
+        }
+        if (e.key === "Escape") setMenu(false);
+      }}
+    >
+      <aside className="acb-sidebar">
+        <div className="acb-section-head">
+          <strong>API console</strong>
+          <button
+            aria-label="새 요청 탭"
+            onClick={() => {
+              const q = selected ?? queries[0];
+              if (q)
+                open(
+                  { path: q.route, method: "POST", body: q.default_body },
+                  undefined,
+                  true,
+                );
+            }}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+        <input
+          className="acb-search"
+          aria-label="저장 쿼리 검색"
+          placeholder="query_id / 이름 검색"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="acb-subtabs">
+          {["Queries", "History"].map((s) => (
             <button
-              className="primary"
-              disabled={busy || !req.path}
-              onClick={send}
+              key={s}
+              className={side === s ? "active" : ""}
+              onClick={() => setSide(s)}
             >
-              <Play size={14} />
-              {busy ? "실행 중" : "Send"}
+              {s}
+              {s === "History" && <small>{history.length}</small>}
             </button>
-            {busy && (
+          ))}
+          <button
+            aria-label="목록 새로고침"
+            onClick={() => refresh().catch((e) => setLoadError(e.message))}
+          >
+            <RefreshCw size={12} />
+          </button>
+        </div>
+        <div className="acb-sidebar-scroll">
+          <ErrorBox error={loadError} />
+          {loading && <p role="status">쿼리 목록을 불러오는 중…</p>}
+          {side === "Queries" ? (
+            <>
+              <div className="acb-group">
+                ⌄ Oracle · XEPDB1 <small>{queries.length}</small>
+              </div>
+              {queries
+                .filter((q) =>
+                  (q.query_id + q.name)
+                    .toLowerCase()
+                    .includes(search.toLowerCase()),
+                )
+                .map((q) => (
+                  <button
+                    className={
+                      "acb-query " +
+                      (selected === q && !tab?.source ? "selected" : "")
+                    }
+                    key={q.query_id}
+                    onClick={() =>
+                      open({
+                        path: q.route,
+                        method: "POST",
+                        body: q.default_body,
+                      })
+                    }
+                  >
+                    <span className="post">POST</span>
+                    <span>
+                      <strong>{q.query_id}</strong>
+                      <small>{q.name}</small>
+                    </span>
+                  </button>
+                ))}
+              <div className="acb-group">
+                ⌄ Saved sources <small>{sources.length}</small>
+              </div>
+              {sources
+                .filter((s) =>
+                  s.name.toLowerCase().includes(search.toLowerCase()),
+                )
+                .map((s) => (
+                  <button
+                    className={
+                      "acb-query " +
+                      (tab?.source?.id === s.id ? "selected" : "")
+                    }
+                    key={s.id}
+                    onClick={() => void openSource(s)}
+                  >
+                    <span className="acb-src">SRC</span>
+                    <span>
+                      <strong>{s.name}</strong>
+                      <small>
+                        {fmt(s.row_count)} rows · {when(s.created_at)}
+                      </small>
+                    </span>
+                  </button>
+                ))}
+              {!sources.length && (
+                <p className="acb-hint">
+                  실행하고 소스 고정으로 첫 소스를 저장하세요.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="acb-hint">
+                최근 전체 실행 200건 중 DAC 이력. 선택하면 요청 바디가 새 탭에
+                열립니다.
+              </p>
+              {history
+                .filter((r) =>
+                  r.path.toLowerCase().includes(search.toLowerCase()),
+                )
+                .map((r) => (
+                  <button
+                    className="acb-query"
+                    key={r.id}
+                    onClick={() =>
+                      open(
+                        { path: r.path, method: r.method, body: r.request },
+                        r.id,
+                      )
+                    }
+                  >
+                    <span className={r.status >= 400 ? "acb-failed" : "acb-ok"}>
+                      {r.status}
+                    </span>
+                    <span>
+                      <strong>{r.path.split("/").pop()}</strong>
+                      <small>
+                        {when(r.createdAt)} · {fmt(r.durationMs)} ms
+                      </small>
+                    </span>
+                  </button>
+                ))}
+            </>
+          )}
+        </div>
+        <div className="acb-sidebar-foot">
+          ⌘ / Ctrl + Enter 실행 · 탭 자동 임시 저장
+        </div>
+      </aside>
+      <section className="acb-work">
+        <div className="acb-tabs" aria-label="열린 요청">
+          {tabs.map((t) => (
+            <div className={t.id === tab?.id ? "active" : ""} key={t.id}>
               <button
+                aria-pressed={t.id === tab?.id}
                 onClick={() => {
-                  abort.current?.abort();
-                  setBusy(false);
+                  setActive(t.id);
+                  setMenu(false);
+                }}
+                title={t.source?.name ?? t.path}
+              >
+                <span className={t.source ? "acb-src" : "post"}>
+                  {t.source ? "SRC" : t.method}
+                </span>
+                {t.source?.name ?? t.path.split("/").pop()}
+                {t.busy ? " …" : ""}
+              </button>
+              <button
+                aria-label={`${t.source?.name ?? t.path.split("/").pop()} 탭 닫기`}
+                onClick={() => {
+                  if (
+                    t.busy &&
+                    !window.confirm("진행 중인 요청을 취소하고 탭을 닫을까요?")
+                  )
+                    return;
+                  controllers.current.get(t.id)?.abort();
+                  setTabs((ts) => ts.filter((x) => x.id !== t.id));
                 }}
               >
-                취소
+                <X size={12} />
               </button>
-            )}
+            </div>
+          ))}
+        </div>
+        {!tab ? (
+          <div className="acb-empty">
+            왼쪽에서 query_id를 선택해 요청을 시작하세요.
           </div>
-          <ErrorBox error={error} />
-          {historyId && (
-            <p className="notice">
-              이력 {historyId.slice(0, 8)}의 요청 바디입니다. 실행하면 새로운
-              이력으로 저장됩니다.
-            </p>
-          )}
-          {selected && (
-            <details className="query-bindings">
-              <summary>바인딩 파라미터 · {selected.bindings.length}개</summary>
-              <ul>
-                {selected.bindings.map((b) => (
-                  <li key={b.name}>
-                    <code>{b.name}</code> · {b.type}
-                    {b.nullable ? " / null 허용" : " / 값 필수"}
-                    {b.min != null ? ` · ${b.min}–${b.max}` : ""}
-                  </li>
-                ))}
-              </ul>
-              <p>
-                database_name과 query_id는 선택한 쿼리와 일치해야 합니다. 바인딩
-                키는 바디 최상위에 작성합니다.
-              </p>
-            </details>
-          )}
-          {req.method === "POST" && (
-            <div className="request-body">
+        ) : (
+          <>
+            <div className="acb-context">
               <div>
-                REQUEST BODY <span>application/json</span>
-                {selected && <><button disabled={busy} onClick={()=>{try{sessionStorage.setItem("analysis-api-seed",JSON.stringify({queryId:selected.query_id,body:JSON.parse(body)}));location.hash="analysis?api=1"}catch(e:any){setError(e.message)}}}>분석 소스로</button></>}
-                {selected && <button disabled={busy} onClick={() => { try { const parsed = JSON.parse(body); if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw Error("JSON 객체를 입력하세요."); sessionStorage.setItem("workflow-query-seed", JSON.stringify({queryId:selected.query_id,body:parsed})); location.hash = "workflows"; } catch(e:any) { setError(e.message); } }}>워크플로우로 연결</button>}
-                {selected && (
+                <strong>
+                  {tab.source
+                    ? tab.source.name
+                    : (selected?.query_id ?? tab.path.split("/").pop())}
+                </strong>
+                <small>
+                  {tab.source
+                    ? "고정 스냅샷 · 읽기 전용"
+                    : `${selected?.name ?? "API 요청"} · SQL v${selected?.query_version ?? "—"}`}
+                </small>
+              </div>
+              <div className="acb-actions">
+                {tab.source ? (
+                  <a href={`#analysis?snapshot=${tab.source.id}`}>
+                    Analysis에서 열기 ↗
+                  </a>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        download(
+                          new Blob([tab.body], { type: "application/json" }),
+                          `${selected?.query_id ?? "request"}.json`,
+                        );
+                        patch(tab.id, {
+                          notice:
+                            "요청 바디를 JSON 파일로 저장했습니다. 탭은 브라우저 세션에 자동 저장됩니다.",
+                        });
+                      }}
+                    >
+                      <Save size={13} />
+                      저장
+                    </button>
+                    <button
+                      disabled={!selected || tab.busy}
+                      onClick={() => seed("workflow")}
+                    >
+                      <GitBranch size={13} />
+                      워크플로우로 연결
+                    </button>
+                    <button
+                      disabled={!selected || tab.busy}
+                      title="현재 바디로 새로 조회한 결과를 고정 데이터 소스로 저장합니다."
+                      onClick={() => void send(true)}
+                    >
+                      <Pin size={13} />
+                      실행하고 소스 고정
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <ErrorBox error={tab.error ?? ""} />
+            {tab.notice && (
+              <p className="acb-notice" role="status">
+                {tab.notice}
+              </p>
+            )}
+            {tab.historyId && (
+              <p className="acb-notice">
+                이력 {tab.historyId.slice(0, 8)}의 바디 · 실행하면 새 이력으로
+                저장됩니다.
+              </p>
+            )}
+            {!tab.source && (
+              <>
+                <div className="acb-url">
+                  <span className="post">{tab.method}</span>
+                  <input
+                    aria-label="API 경로"
+                    readOnly
+                    value={location.origin + tab.path}
+                  />
+                  {tab.busy ? (
+                    <button
+                      onClick={() => controllers.current.get(tab.id)?.abort()}
+                    >
+                      취소
+                    </button>
+                  ) : (
+                    <div className="acb-send">
+                      <button
+                        className="primary"
+                        disabled={!tab.path}
+                        onClick={() => void send()}
+                      >
+                        <Play size={12} />
+                        Send
+                      </button>
+                      <button
+                        className="primary"
+                        aria-label="실행 옵션"
+                        aria-expanded={menu}
+                        onClick={() => setMenu(!menu)}
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                      {menu && (
+                        <div className="acb-send-menu">
+                          <button onClick={() => void send()}>실행</button>
+                          <button
+                            disabled={!selected}
+                            onClick={() => void send(true)}
+                          >
+                            실행하고 소스 고정
+                          </button>
+                          <button
+                            disabled={!selected}
+                            onClick={() => seed("analysis")}
+                          >
+                            분석 소스로 열기
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="acb-subtabs">
+                  {["Params", "Body", "Headers", "Binding Docs"].map((s) => (
+                    <button
+                      key={s}
+                      className={tab.requestTab === s ? "active" : ""}
+                      onClick={() => patch(tab.id, { requestTab: s })}
+                    >
+                      {s}
+                      {s === "Params" && (
+                        <small>{selected?.bindings.length ?? 0}</small>
+                      )}
+                    </button>
+                  ))}
+                  <span className="acb-spacer" />
                   <button
-                    disabled={busy}
-                    onClick={() => {
-                      setBody(JSON.stringify(selected.default_body, null, 2));
-                      setHistoryId("");
-                      setResult(undefined);
-                    }}
+                    disabled={tab.busy || !selected}
+                    onClick={() =>
+                      updateBody(
+                        JSON.stringify(selected?.default_body, null, 2),
+                      )
+                    }
                   >
                     기본 바디 복원
                   </button>
-                )}
-              </div>
-              <textarea
-                spellCheck={false}
-                aria-label="JSON 요청 본문"
-                disabled={busy}
-                value={body}
-                onChange={(e) => {
-                  setBody(e.target.value);
-                  setResult(undefined);
-                }}
-                onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-              />
-            </div>
-          )}
-          <div className="response-heading">
-            <div className="segmented">
-              <button
-                className={responseTab === "json" ? "active" : ""}
-                onClick={() => setResponseTab("json")}
-              >
-                JSON
-              </button>
-              <button
-                className={responseTab === "table" ? "active" : ""}
-                onClick={() => setResponseTab("table")}
-              >
-                Table
-              </button>
-            </div>
-            {result && (
-              <>
-                <span
-                  className={
-                    "status-code " + (result.status >= 400 ? "bad" : "")
-                  }
-                >
-                  {result.status}
-                </span>
-                <span className="mono tiny">{fmt(result.durationMs)} ms</span>
-                <button
-                  className="icon-button push-right"
-                  aria-label="응답 복사"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(
-                        JSON.stringify(result.data, null, 2),
-                      );
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    } catch {
-                      setError("클립보드 접근을 허용해 주세요.");
-                    }
-                  }}
-                >
-                  {copied ? <Check size={15} /> : <Copy size={15} />}
-                </button>
+                  <button
+                    disabled={tab.busy}
+                    onClick={() => {
+                      try {
+                        updateBody(
+                          JSON.stringify(objectBody(tab.body), null, 2),
+                        );
+                      } catch (e: any) {
+                        patch(tab.id, { error: e.message });
+                      }
+                    }}
+                  >
+                    Beautify
+                  </button>
+                </div>
+                <div className="acb-editor">
+                  {tab.requestTab === "Body" ? (
+                    <textarea
+                      aria-label="JSON 요청 본문"
+                      spellCheck={false}
+                      disabled={tab.busy || tab.method !== "POST"}
+                      value={
+                        tab.method === "POST"
+                          ? tab.body
+                          : "GET 요청에는 본문이 없습니다."
+                      }
+                      onChange={(e) => updateBody(e.target.value)}
+                    />
+                  ) : tab.requestTab === "Params" ? (
+                    <>
+                      <p className="acb-hint">
+                        바디 바인딩 · 입력 후 Enter 또는 다른 필드 선택 시
+                        Body에 반영됩니다.
+                      </p>
+                      {bindings()}
+                    </>
+                  ) : tab.requestTab === "Headers" ? (
+                    <>
+                      <dl>
+                        <dt>Content-Type</dt>
+                        <dd>
+                          application/json; charset=utf-8
+                          {tab.method !== "POST" && " (GET에는 전송하지 않음)"}
+                        </dd>
+                      </dl>
+                      <p className="acb-hint">
+                        등록된 DAC API로 전달하는 고정 헤더입니다. 임의
+                        인증·호스트 헤더는 지원하지 않습니다.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>{selected?.description}</p>
+                      {selected?.bindings.map((b) => (
+                        <p key={b.name}>
+                          <code>{b.name}</code> · {b.type} ·{" "}
+                          {b.nullable ? "null 허용" : "필수"}
+                          {b.min != null ? ` · ${b.min}–${b.max}` : ""}
+                        </p>
+                      ))}
+                      <p className="acb-hint">
+                        database_name과 query_id는 선택한 쿼리와 일치해야
+                        합니다.
+                      </p>
+                    </>
+                  )}
+                </div>
               </>
             )}
-          </div>
-          {!result ? (
-            <div className="response-empty">
-              <Terminal size={28} />
-              <h3>첫 번째 요청을 실행해 보세요.</h3>
-              <p>왼쪽에서 쿼리를 선택한 뒤 기본 바디를 수정해 실행하세요.</p>
+            <div className="acb-subtabs acb-response-bar">
+              {[
+                "Table",
+                "Body",
+                ...(!tab.source ? ["Headers", "Timeline"] : []),
+              ].map((s) => (
+                <button
+                  key={s}
+                  className={tab.responseTab === s ? "active" : ""}
+                  onClick={() => patch(tab.id, { responseTab: s })}
+                >
+                  {s}
+                </button>
+              ))}
+              <span className="acb-spacer" />
+              {tab.result && (
+                <>
+                  <span
+                    className={
+                      "acb-status " + (tab.result.status >= 400 ? "failed" : "")
+                    }
+                  >
+                    {tab.source
+                      ? "SNAPSHOT"
+                      : tab.result.status === 200
+                        ? "200 OK"
+                        : tab.result.status}
+                  </span>
+                  {!tab.source && (
+                    <>
+                      <span>{fmt(tab.result.durationMs)} ms</span>
+                      <span title="JSON 응답 본문의 UTF-8 크기">
+                        {fmt((tab.result.responseBytes ?? 0) / 1024)} KB
+                      </span>
+                    </>
+                  )}
+                  <span>{fmt(rows.length)} rows</span>
+                  <button
+                    disabled={!rows.length}
+                    onClick={() =>
+                      download(
+                        new Blob([csv(rows)], {
+                          type: "text/csv;charset=utf-8",
+                        }),
+                        `${selected?.query_id ?? "source"}.csv`,
+                      )
+                    }
+                  >
+                    <Download size={12} />
+                    CSV
+                  </button>
+                </>
+              )}
             </div>
-          ) : responseTab === "json" ? (
-            <pre className="response-json">
-              {JSON.stringify(result.data, null, 2)}
-            </pre>
-          ) : keys.length ? (
-            <>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      {keys.map((k) => (
-                        <th key={k}>{k}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.slice(0, 50).map((r: any, i: number) => (
-                      <tr key={i}>
-                        {keys.map((k) => (
-                          <td key={k}>
-                            {typeof r[k] === "object"
-                              ? JSON.stringify(r[k])
-                              : String(r[k] ?? "NULL")}
-                          </td>
+            <div className="acb-response">
+              {tab.busy ? (
+                <div className="acb-empty" role="status">
+                  요청을 실행하고 있습니다…
+                </div>
+              ) : !tab.result ? (
+                <div className="acb-empty">
+                  <strong>조회할 query_id를 선택하고 Send</strong>
+                  <p>요청 바디와 실행 상태는 History에 저장됩니다.</p>
+                </div>
+              ) : tab.responseTab === "Body" ? (
+                <pre>{JSON.stringify(tab.result.data, null, 2)}</pre>
+              ) : tab.responseTab === "Headers" ? (
+                <dl>
+                  {Object.entries(tab.result.responseHeaders ?? {}).map(
+                    ([k, v]) => (
+                      <div key={k}>
+                        <dt>{k}</dt>
+                        <dd>{String(v)}</dd>
+                      </div>
+                    ),
+                  )}
+                </dl>
+              ) : tab.responseTab === "Timeline" ? (
+                <div className="acb-timeline">
+                  <strong>API 처리 · {fmt(tab.result.durationMs)} ms</strong>
+                  <p>
+                    Portal에서 측정한 업스트림 요청 + JSON 읽기 시간입니다.
+                    브라우저 왕복·이력 저장 시간은 제외됩니다.
+                  </p>
+                  <code>Run ID {tab.result.runId}</code>
+                </div>
+              ) : keys.length ? (
+                <>
+                  <table>
+                    <thead>
+                      <tr>
+                        {keys.map((k: string) => (
+                          <th key={k}>{k}</th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="tiny muted">
-                {fmt(rows.length)}행 중 최대 50행 미리보기. 전체 응답은 JSON
-                탭에서 확인하세요.
-              </p>
-            </>
-          ) : (
-            <div className="quiet-empty">
-              테이블로 표시할 행 배열이 없습니다. JSON 탭을 사용하세요.
+                    </thead>
+                    <tbody>
+                      {rows.slice(0, 200).map((r, i) => (
+                        <tr key={i}>
+                          {keys.map((k: string) => (
+                            <td key={k}>
+                              {r[k] === null
+                                ? "NULL"
+                                : typeof r[k] === "object"
+                                  ? JSON.stringify(r[k])
+                                  : String(r[k] ?? "")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {rows.length > 200 && (
+                    <p className="acb-hint">
+                      {fmt(rows.length)}행 중 200행 미리보기 · CSV는 전체 행을
+                      내보냅니다.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="acb-empty">
+                  표시할 행이 없습니다. Body에서 응답을 확인하세요.
+                </div>
+              )}
             </div>
-          )}
-          {result && (
-            <p className="trace-id">
-              Run ID <span>{result.runId}</span>
+          </>
+        )}
+      </section>
+      <aside className="acb-inspector">
+        <div className="acb-section-head">
+          <strong>Inspector</strong>
+        </div>
+        {tab?.source ? (
+          <div className="acb-inspector-content">
+            <h3>고정 데이터 소스</h3>
+            <p>{tab.source.name}</p>
+            <p>
+              {fmt(tab.source.row_count)} rows · {when(tab.source.created_at)}
             </p>
-          )}
-
-          <section className="console-history">
-            <div className="panel-heading">
-              <h3>History · DAC 실행 이력</h3>
-              <button onClick={loadHistory} disabled={busy}>
-                <RefreshCw size={14} />
-                이력 새로고침
-              </button>
-            </div>
-            <p className="tiny muted">
-              최근 전체 실행 200건 중 DAC 쿼리 실행. 요청 바디와 상태를
-              저장합니다. 결과 데이터 자체는 저장하지 않습니다.
-            </p>
-            <ErrorBox error={historyError} />
-            {!history.length && <p>아직 실행한 DAC 쿼리가 없습니다.</p>}
-            <div className="console-history-list">
-              {history.map((r) => (
+            <code>{tab.source.id}</code>
+            <a href={`#analysis?snapshot=${tab.source.id}`}>
+              Analysis에서 열기 ↗
+            </a>
+          </div>
+        ) : (
+          <div className="acb-inspector-content">
+            <h3>바인딩 파라미터</h3>
+            {bindings()}
+            <h3>최근 실행</h3>
+            {history
+              .filter((r) => r.path === tab?.path)
+              .slice(0, 5)
+              .map((r) => (
                 <button
-                  className="history-request"
-                  disabled={busy}
+                  className="acb-recent"
                   key={r.id}
+                  title={`${when(r.createdAt)} · 이 바디로 새 탭 열기`}
                   onClick={() =>
-                    select(
+                    open(
                       { path: r.path, method: r.method, body: r.request },
                       r.id,
                     )
                   }
                 >
-                  <span
-                    className={"status-code " + (r.status >= 400 ? "bad" : "")}
-                  >
-                    {r.status}
+                  <span className={r.status >= 400 ? "acb-failed" : "acb-ok"}>
+                    ●
                   </span>
                   <span>
-                    <strong>{r.path.split("/").pop()}</strong>
-                    <small>
-                      {when(r.createdAt)} · {fmt(r.durationMs)}ms ·{" "}
-                      {fmt(r.rowCount)}행
-                    </small>
+                    {r.status} · {fmt(r.rowCount)} rows
                   </span>
-                  <span>바디 불러오기 ↗</span>
+                  <small>{fmt(r.durationMs)} ms</small>
                 </button>
               ))}
+            {!history.some((r) => r.path === tab?.path) && (
+              <p>아직 실행 이력이 없습니다.</p>
+            )}
+            <div className="acb-next">
+              <strong>다음 단계</strong>
+              <p>
+                바디를 워크플로우 Query 노드에 연결하거나, 새로 조회한 결과를
+                고정 소스로 저장해 Analysis에서 차트로 열어 보세요.
+              </p>
             </div>
-          </section>
-        </div>
-      </div>
-    </>
+          </div>
+        )}
+      </aside>
+    </div>
   );
 }

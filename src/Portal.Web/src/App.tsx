@@ -161,7 +161,7 @@ export default function App() {
   }
   const current = pages.find((p) => p[0] === page) ?? pages[0];
   return (
-    <div className={"app " + (collapsed ? "collapsed" : "")}>
+    <div className={"app " + (collapsed ? "collapsed " : "") + (page === "console" ? "console-shell" : "")}>
       <aside className="sidebar">
         <a className="logo" href="#console" aria-label="API Content Builder">
           <img src="/favicon.svg" alt="" />
@@ -202,6 +202,7 @@ export default function App() {
       </aside>
       <div className="main-shell">
         <header className="topbar">
+          {page === "console" && <><a className="console-brand" href="#console"><img src="/favicon.svg" alt=""/>API Content Builder</a><span className="console-workspace">W · Engineering lab</span></>}
           <button
             className="icon-button collapse-toggle"
             aria-label="사이드바 전환"
@@ -223,7 +224,7 @@ export default function App() {
             <span>이동할 화면 찾기</span>
             <kbd>⌘ K</kbd>
           </button>
-          <span className="local-tag">LOCAL ONLY</span>
+          <select className="console-environment" aria-label="연결 환경" title="현재 구성된 환경은 로컬 Oracle 하나입니다." value="local" onChange={() => {}}><option value="local">Local · Oracle XEPDB1</option></select>
           <span className="avatar" title="공유된 로컬 개발 워크스페이스">
             AB
           </span>

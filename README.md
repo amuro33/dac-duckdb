@@ -30,7 +30,7 @@
 | Engine Benchmark | 게시 워크플로우를 DuckDB·Spark·DataFusion으로 재실행, 노드별 시간·기준 Output 일치 검증·CSV, Drill 자체 UI |
 | Data streams | Kafka 실제 원본 발행, 두 소비자 그룹, 전체 DuckDB 변환, 시작·중지, 수신 상세, 결과 차트 |
 | Saved views | 설정·메모 저장, 고정, 검색, 직접 링크, 버전 기반 충돌 감지 |
-| API console | query_id 선택, 기본/이력 바디 편집, Oracle 실행, 워크플로우 연결 |
+| API console | query_id 멀티탭, Params/Body/Headers, 바인딩 Inspector, 실행 이력, Saved sources, 워크플로우 연결 |
 | Workflows | Query·Join·Merge·Filter·Output 그래프, 입력 매핑, 초안/게시 버전, 비동기 실행 API·노드 결과 |
 | Activity | 실행 성공·실패 이력, 요청 설정, 재실행, 상태 필터 |
 | Export | 원본/포인트 CSV, 서버 렌더링 PNG·SVG, 오프라인 HTML |

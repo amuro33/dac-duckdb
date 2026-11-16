@@ -133,3 +133,24 @@ export function LinkButton({
     </button>
   );
 }
+
+/** Read-only JSON with token colors: keys indigo, strings green, numbers amber. */
+export function JsonText({ value }: { value: string }) {
+  const parts: React.ReactNode[] = [];
+  const re = /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b|\b(true|false|null)\b/g;
+  let last = 0,
+    m: RegExpExecArray | null;
+  while ((m = re.exec(value))) {
+    if (m.index > last) parts.push(value.slice(last, m.index));
+    const cls = m[1] ? (m[2] ? "json-key" : "json-str") : m[3] ? "json-num" : "json-lit";
+    parts.push(
+      <span key={m.index} className={cls}>
+        {m[1] ?? m[3] ?? m[4]}
+      </span>,
+    );
+    if (m[2]) parts.push(m[2]);
+    last = re.lastIndex;
+  }
+  parts.push(value.slice(last));
+  return <>{parts}</>;
+}

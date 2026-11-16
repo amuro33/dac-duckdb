@@ -11,7 +11,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { execute, data, json, fmt, when, csv, download } from "./api";
-import { ErrorBox } from "./ui";
+import { ErrorBox, JsonText } from "./ui";
 import type { Run } from "./types";
 import { objectBody, bindingValue, responseRows } from "./console-model";
 import "./console.css";
@@ -819,7 +819,7 @@ export function Console({ start }: { start?: ConsoleRequest }) {
                   <p>요청 바디와 실행 상태는 History에 저장됩니다.</p>
                 </div>
               ) : tab.responseTab === "Body" ? (
-                <pre>{JSON.stringify(tab.result.data, null, 2)}</pre>
+                <pre><JsonText value={JSON.stringify(tab.result.data, null, 2)} /></pre>
               ) : tab.responseTab === "Headers" ? (
                 <dl>
                   {Object.entries(tab.result.responseHeaders ?? {}).map(

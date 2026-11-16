@@ -177,7 +177,7 @@
 }
 .acb-query strong {
   display: block;
-  font: 500 10px var(--mono);
+  font: 500 11px var(--mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -192,7 +192,7 @@
 }
 .api-console .post,
 .acb-src {
-  font: 600 9px var(--mono);
+  font: 600 11px var(--mono);
   flex-shrink: 0;
 }
 .acb-src {
@@ -384,7 +384,7 @@
   position: sticky;
   top: 0;
   background: var(--surface-2);
-  font: 500 10px var(--sans);
+  font: 500 11px var(--sans);
   z-index: 1;
 }
 .acb-response th,
@@ -606,3 +606,12 @@
 }
 .api-console .acb-query { justify-content:flex-start; }
 .api-console .acb-recent { justify-content:flex-start; }
+
+/* Color pass: match the design board */
+.api-console .post { color: var(--warn-fg); font-size: 11px; }
+.acb-src { color: var(--sky-fg); font-size: 11px; }
+.acb-response th { background: var(--surface-2); color: var(--text-2); font-size: 12px; font-weight: 500; }
+.json-key { color: var(--accent-strong); }
+.json-str { color: var(--ok-fg); }
+.json-num { color: var(--warn-fg); }
+.json-lit { color: var(--text-2); }

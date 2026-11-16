@@ -30,12 +30,12 @@
   font-size: 12px;
   border: 0;
   border-radius: 5px;
-  background: #f8fafc;
+  background: var(--surface-2);
   color: var(--muted);
 }
 .source-tabs .active {
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .source-picker label {
   font-size: 11px;
@@ -53,7 +53,7 @@
   min-width: 0;
   background: white;
   font-size: 12px;
-  color: var(--text);
+  color: var(--ink);
 }
 .source-fields {
   display: grid;
@@ -116,7 +116,7 @@
 }
 .source-links a {
   font-size: 11px;
-  color: #4f46e5;
+  color: var(--accent);
 }
 .source-active details {
   font-size: 11px;
@@ -125,7 +125,7 @@
 .source-active pre {
   max-height: 240px;
   overflow: auto;
-  background: #f8fafc;
+  background: var(--surface-2);
   padding: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -264,3 +264,13 @@
 .source-results .vs-time { font-size: 26px; margin-top: 12px; }
 .source-results .vs-card dl { gap: 9px; margin: 18px 0; }
 .source-run-toolbar { gap: 8px; margin-bottom: 12px; }
+
+/* Compact density */
+.source-picker { border-radius: 8px; padding: 12px; }
+.source-tabs button { padding: 4px 10px; }
+.source-actions button { padding: 5px 10px; }
+.source-active pre { padding: 8px; }
+.source-workload { padding: 12px; border-radius: 8px; }
+.source-results .vs-card { padding: 12px; }
+.source-results .vs-time { font-size: 22px; margin-top: 10px; }
+.source-selector > summary { padding: 8px 12px; }

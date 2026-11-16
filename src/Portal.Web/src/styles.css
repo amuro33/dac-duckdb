@@ -2082,7 +2082,7 @@ button.list-row:hover {
 .query-list-label {min-width:0;padding:8px 0;}
 .query-id {display:block;font-family:var(--mono);font-size:12px;font-weight:600;line-height:1.5;overflow-wrap:anywhere;}
 .query-name {display:block;margin-top:4px;font-size:11px;font-weight:400;line-height:1.5;color:var(--muted);}
-.query-description .query-id {font-size:20px;color:var(--text);}
+.query-description .query-id {font-size:20px;color:var(--ink);}
 .query-description .query-name {font-size:12px;}
 .query-description {padding:18px 20px;border-bottom:1px solid #e2e8f0;}.query-description p {margin:8px 0;}.query-description small {color:#64748b;}
 .query-bindings {padding:14px 20px;font-size:12px;border-bottom:1px solid #e2e8f0;}.query-bindings li {margin:8px 0;}.request-method {padding:10px;font-size:12px;font-weight:600;}
@@ -2254,3 +2254,13 @@ td button { min-height: 24px; padding: 0 8px; border-radius: 6px; }
   .modal { max-width: 100%; }
   .command-button { width: auto; }
 }
+
+/* Engine Benchmark (legacy VS) compact */
+.vs-source { padding: 12px; margin-bottom: 10px; }
+.vs-source select { margin: 8px 0; }
+.vs-source button { margin: 8px 6px 0 0; }
+.vs-grid { gap: 10px; margin-bottom: 10px; }
+.vs-card { padding: 12px; }
+.vs-time { font-size: 22px; margin-top: 10px; }
+.vs-time small { font-size: 12px; }
+.vs-card dl { gap: 6px; margin: 12px 0; }

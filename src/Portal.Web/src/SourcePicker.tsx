@@ -1,3 +1,4 @@
+import { Identity, sourceIdentifier } from "./identity";
 import { useEffect, useRef, useState } from "react";
 import { json, data, fmt, when } from "./api";
 import { ErrorBox } from "./ui";
@@ -269,7 +270,7 @@ export function SourcePicker({
             <option value="">선택하세요</option>
             {snapshots.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} · {fmt(s.row_count)}행 · {when(s.created_at)}
+                {sourceIdentifier(s)} · {s.name} · {fmt(s.row_count)}행 · {when(s.created_at)}
               </option>
             ))}
           </select>
@@ -280,7 +281,7 @@ export function SourcePicker({
             {kind === "workflow" ? (
               <>
                 <label>
-                  워크플로우
+                  workflow_id
                   <select
                     aria-label={label + " 워크플로우"}
                     disabled={locked}
@@ -290,13 +291,14 @@ export function SourcePicker({
                     <option value="">선택하세요</option>
                     {workflows.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {w.name} ·{" "}
+                        {w.id} · {w.name} ·{" "}
                         {w.published_version
                           ? "v" + w.published_version
                           : "미게시"}
                       </option>
                     ))}
                   </select>
+                  {workflow && <Identity id={workflow} description={workflows.find(w => w.id === workflow)?.name} />}
                 </label>
                 <label>
                   결과 가져오기
@@ -417,13 +419,13 @@ export function SourcePicker({
       {active && (
         <div className="source-active">
           <div>
-            <strong>{active.name}</strong>
+            <Identity id={sourceIdentifier(active)} description={active.name} />
             <span>
               {fmt(active.row_count)}행 · {active.columns.length}컬럼 ·{" "}
               {when(active.created_at)}
             </span>
           </div>
-          <code title={active.checksum}>{active.id}</code>
+          <code title={active.checksum}>snapshot_id · {active.id}</code>
           <div className="source-links">
             <a href={"#analysis?snapshot=" + active.id}>분석 열기 ↗</a>
             {active.kind === "workflow" && active.origin.version && <a href={"#engines?workflow=" + active.origin.workflowId + "&run=" + active.origin.runId}>Engine Benchmark ↗</a>}

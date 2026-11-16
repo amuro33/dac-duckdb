@@ -1,3 +1,4 @@
+import { sourceIdentifier } from "./identity";
 import { useState } from "react";
 import { SourcePicker, type SourceSnapshot } from "./SourcePicker";
 import { Analysis as AnalysisStudio } from "./Analysis";
@@ -56,7 +57,7 @@ export function SourceAnalysis({
           데이터 소스{" "}
           {snapshot
             ? "· " +
-              snapshot.name +
+              sourceIdentifier(snapshot) + " · " + snapshot.name +
               " · " +
               snapshot.row_count.toLocaleString() +
               "행"

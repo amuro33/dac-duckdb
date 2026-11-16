@@ -1,3 +1,4 @@
+import { Identity } from "./identity";
 import { useEffect, useState } from "react";
 import { EngineVs as LegacyEngineVs } from "./LegacyEngineVs";
 import { json, fmt, when, csv, download } from "./api";
@@ -44,7 +45,7 @@ export function EngineVs() {
     try{
       const body=previous?{runId:previous}:{workflowId:workflow,version:Number(version),inputs:JSON.parse(inputs)};
       const response=await json("/api/workflow-benchmarks",{method:"POST",body:JSON.stringify(body)});
-      setRun({status:"queued",config:{workflowName:workflows.find(w=>w.id===workflow)?.name,version},results:{}});setRunId(response.id);
+      setRun({status:"queued",config:{workflowId:workflow,workflowName:workflows.find(w=>w.id===workflow)?.name,version},results:{}});setRunId(response.id);
     }catch(e:any){setError(e.message);}finally{setSending(false);}
   }
   const results=run?.results || {}, complete=engines.every(e=>results[e]?.state === "succeeded"), best=complete?Math.min(...engines.map(e=>results[e].totalMs)):0;
@@ -55,19 +56,20 @@ export function EngineVs() {
     <section className="source-picker">
       <div className="source-heading"><strong>벤치마크할 워크플로우</strong><span>연산은 Workflows에서 정의합니다</span></div>
       <div className="source-fields">
-        <label>워크플로우<select aria-label="벤치마크 워크플로우" disabled={busy} value={workflow} onChange={e=>{setWorkflow(e.target.value);setPrevious("");}}><option value="">선택하세요</option>{workflows.filter(w=>w.published_version).map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
+        <label>workflow_id<select aria-label="벤치마크 워크플로우" disabled={busy} value={workflow} onChange={e=>{setWorkflow(e.target.value);setPrevious("");}}><option value="">선택하세요</option>{workflows.filter(w=>w.published_version).map(w=><option key={w.id} value={w.id}>{w.id} · {w.name}</option>)}</select></label>
         <label>입력 준비<select aria-label="벤치마크 실행 선택" disabled={busy||loading} value={previous} onChange={e=>setPrevious(e.target.value)}><option value="">게시 버전 새로 실행</option>{runs.map(r=><option key={r.id} value={r.id}>{when(r.created_at)} · v{r.version} · {r.id.slice(0,8)}</option>)}</select></label>
         {!previous&&<label>게시 버전<select aria-label="벤치마크 게시 버전" disabled={busy||loading} value={version} onChange={e=>setVersion(e.target.value)}><option value="">선택하세요</option>{versions.map(v=><option key={v.version} value={v.version}>v{v.version}</option>)}</select></label>}
       </div>
       {!previous&&<label className="source-body">워크플로우 실행 입력<textarea aria-label="벤치마크 입력" disabled={busy||loading} spellCheck={false} value={inputs} onChange={e=>setInputs(e.target.value)}/></label>}
       {!previous&&definition&&<p className="source-note">{definition.nodes.length}개 노드 · {definition.nodes.filter((n:any)=>n.kind==="query").length}개 API · {definition.nodes.filter((n:any)=>["join","merge","filter"].includes(n.kind)).length}개 변환</p>}
       {previous&&<p className="source-note">선택한 성공 실행에 저장된 정의·입력·Query 결과를 재사용합니다. 현재 초안이나 최신 API를 다시 읽지 않습니다.</p>}
+      {workflow&&<Identity id={workflow} description={workflows.find(w=>w.id===workflow)?.name}/>}
       <div className="source-actions"><button className="primary" disabled={busy||loading||!workflow||(!previous&&!version)} onClick={benchmark}>{busy?"서버에서 벤치마크 실행 중…":"워크플로우 벤치마크 실행"}</button>{workflow&&<a href={"#workflows?id="+workflow}>워크플로우 편집 ↗</a>}</div>
       <p className="source-note">새 실행은 API 연계와 전체 워크플로우를 먼저 실행해 기준 결과를 만듭니다. 이후 Query 결과를 고정하고, 각 엔진이 Join·Filter·Merge를 연결 순서대로 직접 계산합니다. 준비 실행 시간은 엔진 비교에서 제외합니다. 화면을 닫아도 서버 실행은 계속됩니다.</p>
     </section>
-    <div className="source-run-toolbar"><select aria-label="벤치마크 기록" value={runId} onChange={e=>{setRun(null);setRunId(e.target.value);}}><option value="">실행 기록 선택</option>{runId&&!history.some(h=>h.id===runId)&&<option value={runId}>현재 실행</option>}{history.map(h=><option key={h.id} value={h.id}>{when(h.created_at)} · {h.config.workflowName} · v{h.config.version} · {h.status}</option>)}</select>
-    {complete&&<button onClick={()=>download(new Blob([csv(engines.map(e=>({engine:e,workflow:run.config.workflowName,version:run.config.version,runId:run.config.runId,totalMs:results[e].totalMs,engineMs:results[e].engineMs,preparationMs:results[e].preparationMs,rowCount:results[e].rowCount,resultHash:results[e].resultHash,matchesBaseline:results[e].matchesBaseline})))],{type:"text/csv;charset=utf-8"}),"workflow-benchmark.csv")}>비교 CSV</button>}</div>
-    {run&&<section className="source-workload"><h3>{run.config.workflowName} · v{run.config.version} · {run.status}</h3><p className="source-note">표시 중인 기록의 조건입니다. 위 선택을 바꿔도 기존 결과는 변경되지 않습니다.</p>{run.config.baselineNodeMs!=null?<p>기준 실행 노드 합계 {fmt(run.config.baselineNodeMs)} ms · 고정 Query 입력 {fmt(run.config.queryRows)}행</p>:busy&&<p>워크플로우 입력 준비 또는 실행 대기 중…</p>}<details><summary>실행 정의 · 입력 · 기준 실행 ID</summary><pre>{JSON.stringify(run.config,null,2)}</pre></details></section>}
+    <div className="source-run-toolbar"><select aria-label="벤치마크 기록" value={runId} onChange={e=>{setRun(null);setRunId(e.target.value);}}><option value="">실행 기록 선택</option>{runId&&!history.some(h=>h.id===runId)&&<option value={runId}>현재 실행</option>}{history.map(h=><option key={h.id} value={h.id}>{h.config.workflowId} · {h.config.workflowName} · {when(h.created_at)} · v{h.config.version} · {h.status}</option>)}</select>
+    {complete&&<button onClick={()=>download(new Blob([csv(engines.map(e=>({engine:e,workflow_id:run.config.workflowId,workflow:run.config.workflowName,version:run.config.version,runId:run.config.runId,totalMs:results[e].totalMs,engineMs:results[e].engineMs,preparationMs:results[e].preparationMs,rowCount:results[e].rowCount,resultHash:results[e].resultHash,matchesBaseline:results[e].matchesBaseline})))],{type:"text/csv;charset=utf-8"}),"workflow-benchmark.csv")}>비교 CSV</button>}</div>
+    {run&&<section className="source-workload"><Identity id={run.config.workflowId || "workflow_id 없음"} description={run.config.workflowName}/><p>v{run.config.version} · {run.status}</p><p className="source-note">표시 중인 기록의 조건입니다. 위 선택을 바꿔도 기존 결과는 변경되지 않습니다.</p>{run.config.baselineNodeMs!=null?<p>기준 실행 노드 합계 {fmt(run.config.baselineNodeMs)} ms · 고정 Query 입력 {fmt(run.config.queryRows)}행</p>:busy&&<p>워크플로우 입력 준비 또는 실행 대기 중…</p>}<details><summary>실행 정의 · 입력 · 기준 실행 ID</summary><pre>{JSON.stringify(run.config,null,2)}</pre></details></section>}
     <ErrorBox error={run?.error||""}/>
     <div className="vs-grid">{engines.map(e=>{const r=results[e];return <section className="panel vs-card" key={e}><div className="eyebrow">{r?.state||"대기"}</div><h2>{engineNames[e]}</h2><div className="vs-time">{r?.totalMs!=null?(r.totalMs/1000).toFixed(3):"—"} <small>초</small></div><p>노드별 입력 준비 + 엔진 실행 합계</p><dl><dt>입력 준비</dt><dd>{fmt(r?.preparationMs)} ms</dd><dt>엔진 계산·결과 수집</dt><dd>{fmt(r?.engineMs)} ms</dd><dt>큐 대기 (별도)</dt><dd>{fmt(r?.queueMs)} ms</dd><dt>Output 행</dt><dd>{fmt(r?.rowCount)}</dd></dl>{r?.error&&<ErrorBox error={r.error}/>} {complete&&<p className="notice">{r.totalMs===best?"이번 실행 최단 시간":`최단 시간의 ${(r.totalMs/best).toFixed(2)}배`} · 기준 Output {r.matchesBaseline?"일치":"불일치"}</p>}
     {r?.nodes&&<details><summary>노드별 실행 결과</summary><div className="table-wrap"><table><thead><tr><th>노드</th><th>유형</th><th>행</th><th>시간 ms</th></tr></thead><tbody>{r.nodes.map((n:any)=><tr key={n.nodeId}><td>{n.nodeId}</td><td>{n.kind}</td><td>{fmt(n.rowCount)}</td><td>{n.state==="captured"?"고정 입력":n.state==="forwarded"?"전달":fmt(n.totalMs)}</td></tr>)}</tbody></table></div></details>}

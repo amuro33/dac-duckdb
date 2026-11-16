@@ -1,3 +1,4 @@
+import { Identity, sourceIdentifier } from "./identity";
 import { useEffect, useRef, useState } from "react";
 import {
   Play,
@@ -38,6 +39,7 @@ type Source = {
   id: string;
   name: string;
   kind: string;
+  origin?: { workflowId?: string; queryId?: string };
   row_count: number;
   created_at: string;
 };
@@ -436,7 +438,7 @@ export function Console({ start }: { start?: ConsoleRequest }) {
               </div>
               {sources
                 .filter((s) =>
-                  s.name.toLowerCase().includes(search.toLowerCase()),
+                  (sourceIdentifier(s) + " " + s.name).toLowerCase().includes(search.toLowerCase()),
                 )
                 .map((s) => (
                   <button
@@ -449,7 +451,8 @@ export function Console({ start }: { start?: ConsoleRequest }) {
                   >
                     <span className="acb-src">SRC</span>
                     <span>
-                      <strong>{s.name}</strong>
+                      <strong title={sourceIdentifier(s)}>{sourceIdentifier(s)}</strong>
+                      <small>{s.name}</small>
                       <small>
                         {fmt(s.row_count)} rows · {when(s.created_at)}
                       </small>
@@ -511,16 +514,16 @@ export function Console({ start }: { start?: ConsoleRequest }) {
                   setActive(t.id);
                   setMenu(false);
                 }}
-                title={t.source?.name ?? t.path}
+                title={(t.source ? sourceIdentifier(t.source) : undefined) ?? t.path}
               >
                 <span className={t.source ? "acb-src" : "post"}>
                   {t.source ? "SRC" : t.method}
                 </span>
-                {t.source?.name ?? t.path.split("/").pop()}
+                {(t.source ? sourceIdentifier(t.source) : undefined) ?? t.path.split("/").pop()}
                 {t.busy ? " …" : ""}
               </button>
               <button
-                aria-label={`${t.source?.name ?? t.path.split("/").pop()} 탭 닫기`}
+                aria-label={`${(t.source ? sourceIdentifier(t.source) : undefined) ?? t.path.split("/").pop()} 탭 닫기`}
                 onClick={() => {
                   if (
                     t.busy &&
@@ -546,12 +549,12 @@ export function Console({ start }: { start?: ConsoleRequest }) {
               <div>
                 <strong>
                   {tab.source
-                    ? tab.source.name
+                    ? sourceIdentifier(tab.source)
                     : (selected?.query_id ?? tab.path.split("/").pop())}
                 </strong>
                 <small>
                   {tab.source
-                    ? "고정 스냅샷 · 읽기 전용"
+                    ? tab.source.name + " · 고정 스냅샷 · 읽기 전용"
                     : `${selected?.name ?? "API 요청"} · SQL v${selected?.query_version ?? "—"}`}
                 </small>
               </div>
@@ -889,11 +892,11 @@ export function Console({ start }: { start?: ConsoleRequest }) {
         {tab?.source ? (
           <div className="acb-inspector-content">
             <h3>고정 데이터 소스</h3>
-            <p>{tab.source.name}</p>
+            <Identity id={sourceIdentifier(tab.source)} description={tab.source.name} />
             <p>
               {fmt(tab.source.row_count)} rows · {when(tab.source.created_at)}
             </p>
-            <code>{tab.source.id}</code>
+            <code>snapshot_id · {tab.source.id}</code>
             <a href={`#analysis?snapshot=${tab.source.id}`}>
               Analysis에서 열기 ↗
             </a>

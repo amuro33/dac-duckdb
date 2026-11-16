@@ -1,3 +1,4 @@
+import { Identity } from "./identity";
 import { useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
@@ -501,7 +502,7 @@ export function WorkflowEditor({
         >
           ← 목록으로
         </button>
-        <span className="wf-editor-name">{name || "이름을 입력하세요"}</span>
+        <Identity id={workflowId} description={name || "이름을 입력하세요"} />
         <div className="wf-spacer" />
         <span className={dirty ? "wf-unsaved" : "wf-saved"}>
           {dirty ? "● 저장 전 변경" : "✓ 저장됨"}

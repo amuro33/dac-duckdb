@@ -189,7 +189,7 @@ export function WorkflowLibrary() {
           <Search size={16} />
           <input
             aria-label="워크플로우 검색"
-            placeholder="이름 또는 workflow_id 검색"
+            placeholder="workflow_id 또는 이름 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -213,7 +213,7 @@ export function WorkflowLibrary() {
           <table>
             <thead>
               <tr>
-                <th>이름 / workflow_id</th>
+                <th>workflow_id / 이름</th>
                 <th>게시 상태</th>
                 <th>실행 API</th>
                 <th>수정일</th>
@@ -226,9 +226,9 @@ export function WorkflowLibrary() {
                   <td>
                     <button className="wf-name-link" onClick={() => edit(w.id)}>
                       <GitBranch size={16} />
-                      <strong>{w.name}</strong>
+                      <strong className="entity-id">{w.id}</strong>
                     </button>
-                    <code className="wf-library-id">{w.id}</code>
+                    <small className="entity-description">{w.name}</small>
                   </td>
                   <td>
                     <span
@@ -422,7 +422,7 @@ export function WorkflowLibrary() {
         <Modal title="워크플로우 삭제" onClose={close}>
           <ErrorBox error={modalError} />
           <p>
-            <strong>{removing.name}</strong>을 삭제할까요?
+            <strong>{removing.id}</strong> ({removing.name})을 삭제할까요?
           </p>
           <p className="wf-muted">
             목록에서 제거되고 게시된 실행 API도 사용할 수 없게 됩니다. 기존 실행

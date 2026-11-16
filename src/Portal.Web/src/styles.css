@@ -2269,3 +2269,11 @@ td button { min-height: 24px; padding: 0 8px; border-radius: 6px; }
   height: var(--control-height);
   padding: 0 8px;
 }
+
+/* Stable identifiers lead; human-readable names remain secondary. */
+.entity-identity { display:flex; flex-direction:column; gap:3px; min-width:0; overflow-wrap:anywhere; }
+.entity-id { font:600 12px/1.5 var(--mono); color:var(--ink); overflow-wrap:anywhere; }
+.entity-identity > small,.entity-description { display:block; font:400 11px/1.5 var(--sans); color:var(--muted); overflow-wrap:anywhere; }
+.source-fields label > .entity-identity { margin-top:4px; }
+.wf-toolbar > .entity-identity { max-width:100%; }
+.source-selector > summary { overflow-wrap:anywhere; }

@@ -44,14 +44,14 @@
 }
 .console-workspace {
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 3px 8px;
 }
 .console-environment {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   max-width: 180px;
   height: 26px;
   padding: 2px 6px;
@@ -72,12 +72,12 @@
   grid-template-columns: 210px minmax(0, 1fr) 216px;
   height: calc(100dvh - 40px);
   background: var(--surface);
-  font-size: 11px;
+  font-size: 12px;
 }
 .api-console button,
 .api-console input,
 .api-console select {
-  font-size: 11px;
+  font-size: 12px;
   min-height: 26px;
   height: 28px;
   border-radius: 6px;
@@ -142,7 +142,7 @@
   box-shadow: inset 0 -2px var(--accent);
 }
 .acb-subtabs small {
-  font-size: 9px;
+  font-size: 11px;
   padding: 0 4px;
   border-radius: 4px;
   background: var(--accent-soft);
@@ -185,7 +185,7 @@
 .acb-query small {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -202,7 +202,7 @@
   padding: 10px 8px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 .acb-work {
   min-width: 0;
@@ -255,7 +255,7 @@
   overflow-wrap: anywhere;
 }
 .acb-context small {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   display: block;
   margin-top: 2px;
@@ -270,7 +270,7 @@
   background: transparent;
   color: var(--text-2);
   padding: 0 4px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .acb-actions a,
 .acb-inspector a {
@@ -344,7 +344,7 @@
   resize: none;
   background: white;
   color: #26436b;
-  font: 11px/1.75 var(--mono);
+  font: 12px/1.75 var(--mono);
 }
 .acb-editor > p,
 .acb-editor > dl {
@@ -356,7 +356,7 @@
 }
 .acb-response-bar {
   gap: 8px;
-  font-size: 10px;
+  font-size: 11px;
   flex-shrink: 0;
 }
 .acb-status {
@@ -377,7 +377,7 @@
 }
 .acb-response table {
   width: 100%;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
   border-collapse: collapse;
 }
 .acb-response th {
@@ -397,7 +397,7 @@
 .acb-response pre {
   margin: 0;
   padding: 12px;
-  font: 11px/1.6 var(--mono);
+  font: 12px/1.6 var(--mono);
   background: white;
   color: var(--ink-2);
 }
@@ -422,7 +422,7 @@
   margin-top: 8px;
 }
 .acb-hint {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   padding: 8px 4px;
 }
@@ -440,7 +440,7 @@
   padding: 12px 10px;
 }
 .acb-inspector h3 {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted);
   margin-bottom: 8px;
@@ -452,7 +452,7 @@
 }
 .acb-inspector code {
   overflow-wrap: anywhere;
-  font-size: 10px;
+  font-size: 11px;
 }
 .acb-bindings label {
   display: grid;
@@ -467,10 +467,10 @@
   height: 24px;
   min-height: 24px;
   padding: 2px 6px;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .acb-bindings code {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-2);
 }
 .api-console .acb-recent {
@@ -479,11 +479,11 @@
   padding: 0;
   border: 0;
   background: transparent;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
 }
 .acb-recent small {
   margin-left: auto;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
   color: var(--muted);
 }
 .acb-ok {
@@ -517,7 +517,7 @@
     grid-template-columns: 145px minmax(0, 1fr);
   }
   .console-brand {
-    font-size: 10px;
+    font-size: 11px;
   }
   .console-shell .command-button {
     display: none;
@@ -539,11 +539,11 @@
     gap: 0;
   }
   .acb-subtabs button {
-    font-size: 10px;
+    font-size: 11px;
     padding: 0 4px;
   }
   .acb-actions button {
-    font-size: 9px;
+    font-size: 11px;
   }
   .acb-editor {
     height: 210px;

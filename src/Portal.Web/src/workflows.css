@@ -22,7 +22,7 @@
   margin-left: 8px;
 }
 .wf-engine {
-  font: 11px var(--mono);
+  font: 12px var(--mono);
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -80,7 +80,7 @@
 }
 .wf-unsaved,
 .wf-saved {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--warn-fg);
 }
 .wf-saved {
@@ -116,7 +116,7 @@
   height: var(--control-height);
 }
 .wf-titlebar > span {
-  font: 11px var(--mono);
+  font: 12px var(--mono);
   color: var(--muted);
   flex: 1;
 }
@@ -148,7 +148,7 @@
 }
 .wf-palette button {
   padding: 0 7px;
-  font-size: 11px;
+  font-size: 12px;
   min-height: 28px;
 }
 .wf-canvas-hint {
@@ -156,7 +156,7 @@
   bottom: 12px;
   left: 60px;
   color: #778097;
-  font-size: 10px;
+  font-size: 11px;
   pointer-events: none;
 }
 .wf-node {
@@ -181,7 +181,7 @@
   gap: 8px;
 }
 .wf-node-top > span {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -191,7 +191,7 @@
   border-radius: 4px;
 }
 .wf-node-top small {
-  font: 9px var(--mono);
+  font: 11px var(--mono);
   color: #8991a3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -201,7 +201,7 @@
   overflow-wrap: anywhere;
 }
 .wf-node > p {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
   color: #7c8598;
   margin: 6px 0 0;
@@ -221,7 +221,7 @@
   border: 2px solid white;
 }
 .wf-state {
-  font: 10px var(--mono);
+  font: 11px var(--mono);
   margin: 12px -12px -12px;
   padding: 7px 12px;
   border-top: 1px solid var(--row-line);
@@ -292,7 +292,7 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: #525e75;
   margin: 14px 0;
@@ -313,7 +313,7 @@
   box-sizing: border-box;
 }
 .wf-field textarea {
-  font: 11px/1.8 var(--mono);
+  font: 12px/1.8 var(--mono);
   min-height: 160px;
   resize: vertical;
   tab-size: 2;
@@ -328,7 +328,7 @@
 }
 .wf-muted {
   color: #7b8598;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -338,10 +338,10 @@
   margin-top: 9px;
 }
 .wf-inline-actions button {
-  font-size: 10px;
+  font-size: 11px;
 }
 .wf-binding-help {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
   color: var(--muted);
   border-top: 1px solid var(--line);
@@ -349,7 +349,7 @@
 }
 .wf-inspector pre,
 .wf-resolved pre {
-  font: 10px/1.7 var(--mono);
+  font: 11px/1.7 var(--mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   background: var(--surface-2);
@@ -380,12 +380,12 @@
   grid-column: 1/-1;
 }
 .wf-filter-rule button {
-  font-size: 10px;
+  font-size: 11px;
   grid-column: 1/-1;
 }
 .wf-endpoint {
   display: block;
-  font: 10px/1.8 var(--mono);
+  font: 11px/1.8 var(--mono);
   overflow-wrap: anywhere;
   background: var(--accent-soft);
   color: var(--accent-strong);
@@ -409,7 +409,7 @@
 }
 .wf-execution h2 small {
   font-weight: 400;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin-left: 10px;
 }
@@ -417,7 +417,7 @@
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin: 15px 0;
   overflow-wrap: anywhere;
@@ -425,7 +425,7 @@
 .wf-run-details {
   margin: 8px 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .wf-run-details summary {
   cursor: pointer;
@@ -503,10 +503,10 @@
 .wf-result-heading > span {
   margin-left: auto;
   color: var(--muted);
-  font: 11px var(--mono);
+  font: 12px var(--mono);
 }
 .wf-resolved {
-  font-size: 11px;
+  font-size: 12px;
   margin-bottom: 12px;
 }
 .wf-result-table {
@@ -518,7 +518,7 @@
 .wf-result-table table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .wf-result-table th {
@@ -532,7 +532,7 @@
 }
 .wf-result-table th small {
   display: block;
-  font: 9px var(--mono);
+  font: 11px var(--mono);
   color: #9aa3b3;
   margin-top: 4px;
 }
@@ -546,7 +546,7 @@
 .wf-pagination {
   justify-content: flex-end;
   margin-top: 12px;
-  font: 11px var(--mono);
+  font: 12px var(--mono);
   color: var(--muted);
 }
 .wf-empty {
@@ -559,7 +559,7 @@
   margin: auto;
 }
 .wf-empty small {
-  font-size: 11px;
+  font-size: 12px;
 }
 .wf-page button:disabled {
   opacity: 0.45;
@@ -572,7 +572,7 @@
   padding: 5px;
 }
 .wf-page .react-flow__attribution {
-  font-size: 8px;
+  font-size: 11px;
 }
 @media (max-width: 1250px) {
   .wf-studio {
@@ -640,7 +640,7 @@
     display: none;
   }
   .wf-palette button {
-    font-size: 10px;
+    font-size: 11px;
     padding: 0 7px;
   }
   .wf-run-meta code {
@@ -733,7 +733,7 @@
   padding: 6px 12px;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   text-align: left;
   white-space: nowrap;
@@ -767,12 +767,12 @@
 .wf-library-id {
   display: block;
   color: #929bad;
-  font: 10px var(--mono);
+  font: 11px var(--mono);
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
 .wf-library-endpoint {
-  font: 10px/1.8 var(--mono);
+  font: 11px/1.8 var(--mono);
   display: block;
   overflow-wrap: anywhere;
   min-width: 180px;
@@ -784,7 +784,7 @@
 .wf-library-table time {
   white-space: nowrap;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .wf-publish-badge {
   display: inline-block;
@@ -792,7 +792,7 @@
   border-radius: 5px;
   background: var(--fill);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .wf-publish-badge.published {
@@ -812,7 +812,7 @@
 }
 .wf-library-note {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
   margin-top: 16px;
 }
@@ -884,7 +884,7 @@
     padding: 8px 12px;
   }
   .wf-library-id {
-    font-size: 9px;
+    font-size: 11px;
     overflow-wrap: anywhere;
   }
   .wf-library .wf-name-link {

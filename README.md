@@ -1,10 +1,10 @@
 # API Content Builder
 
-**Oracle의 반도체 검사 데이터를 조회하고, DuckDB·Spark·DataFusion·Drill로 결합·필터링하고, 독립된 산점도로 탐색하는 통합 분석 애플리케이션입니다.**
+**저장 API와 워크플로우를 재사용 가능한 데이터 소스로 만들고, 차트 분석과 DuckDB·Spark·DataFusion 비교로 연결하는 통합 애플리케이션입니다.**
 
-.NET 10 조회·발행·변환·수신 검증·차트·포털 서비스와 React UI를 Kubernetes에 배포합니다. 분석 설정과 실행 이력은 PostgreSQL에 저장하며, 웹 차트와 PNG·SVG·독립 HTML 내보내기를 지원합니다. 1천·1만·10만·100만 건을 선택해 **샘플링 없이 전체 데이터**를 처리할 수 있습니다.
+.NET 10 조회·발행·변환·수신 검증·차트·포털 서비스와 React UI를 Kubernetes에 배포합니다. 분석 설정과 실행 이력은 PostgreSQL에 저장하며, 웹 차트와 PNG·SVG·독립 HTML 내보내기를 지원합니다. 워크플로우/API 소스는 최대 1만 행의 고정 결과를 공유합니다. 별도 스트림/합성 데이터 경로는 1천·1만·10만·100만 건을 선택해 **샘플링 없이 전체 데이터**를 처리합니다.
 
-[분석 엔진 선택](docs/engines.md) · [Kafka 스트리밍](docs/streaming.md) · [시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
+[워크플로우/API 데이터 소스](docs/data-sources.md) · [분석 엔진 선택](docs/engines.md) · [Kafka 스트리밍](docs/streaming.md) · [시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
 
 ![API Content Builder — 저장 쿼리 선택, 요청 편집, 실행 결과와 이력](docs/images/api-content-builder.png)
 
@@ -24,15 +24,14 @@
 
 | 화면 / 기능 | 구현 내용 |
 | --- | --- |
-| Overview | 데이터 통계, 수율 분포, 의존 서비스 상태, 최근 24시간 실행 P95 |
-| Datasets | EDS·결함 조회, Lot 필터, 검색·정렬·페이지 이동, CSV |
-| Analysis | Category/Legend 선택, 날짜·숫자·문자열 X, 숫자 Y, 줌·포인트 조회·확대, 요청 취소 |
+| Analysis | 워크플로우/API/저장 소스 선택, Category/Legend 선택, 날짜·숫자·문자열 X, 숫자 Y, 줌·포인트 조회·확대, 요청 취소 |
 | 차트 옵션 | 포인트 크기, 컬럼 기반 라벨, 라벨 글자 크기, 겹침 방지 |
 | 성능 표시 | 조회·수신 / 현재 페이지 그리기 / 전체 표시 시간, 차트별 처리 시간 |
-| Engine selection | DuckDB / Spark / DataFusion / Drill 실제 실행, 동일 원본 재분석, 단계별 시간 |
+| Engine VS | 동일 소스로 DuckDB·Spark·DataFusion 집계/필터/Join/Merge, 전체 결과 일치 검증, 시간 비교·CSV, Drill 자체 UI |
 | Data streams | Kafka 실제 원본 발행, 두 소비자 그룹, 전체 DuckDB 변환, 시작·중지, 수신 상세, 결과 차트 |
 | Saved views | 설정·메모 저장, 고정, 검색, 직접 링크, 버전 기반 충돌 감지 |
-| API console | 고정 요청 프리셋, JSON 편집, 응답 표/JSON, 상태·실행 시간 |
+| API console | query_id 선택, 기본/이력 바디 편집, Oracle 실행, 워크플로우 연결 |
+| Workflows | Query·Join·Merge·Filter·Output 그래프, 입력 매핑, 초안/게시 버전, 비동기 실행 API·노드 결과 |
 | Activity | 실행 성공·실패 이력, 요청 설정, 재실행, 상태 필터 |
 | Export | 원본/포인트 CSV, 서버 렌더링 PNG·SVG, 오프라인 HTML |
 | 대용량 | Oracle 별도 테이블의 실제 합성 100만 행, 선택 범위 전체 처리 |
@@ -56,13 +55,15 @@ flowchart TB
   end
   subgraph databases["Docker Compose · Kubernetes 외부"]
     oracle[("Oracle 21c XE<br/>EDS / Defect / Benchmark")]
-    postgres[("PostgreSQL 18<br/>Views / Runs / 스트림 상태·입력")]
+    postgres[("PostgreSQL 18<br/>워크플로우 / 소스 / 비교 / Views / Runs")]
     kafka[("Kafka · 실제 EDS / Defect")]
-    engines["Spark / DataFusion / Drill<br/>별도 실행 서비스"]
+    engines["DuckDB / Spark / DataFusion / Drill<br/>별도 실행 서비스"]
   end
   browser -->|"동일 출처 HTTP"| gateway
   gateway -->|"NodePort 30082"| portal
-  portal -->|"조회"| dac
+  portal -->|"고정 소스 비교"| engines
+  chart -->|"고정 소스 행 조회"| portal
+  portal -->|"조회 / 워크플로우 Query"| dac
   portal -->|"스트림 제어"| transform
   publisher -->|"원본 조회"| dac
   publisher -->|"실제 행"| kafka
@@ -78,7 +79,7 @@ flowchart TB
   portal -->|"Npgsql"| postgres
 ```
 
-Oracle과 PostgreSQL은 클러스터 밖의 Compose 컨테이너와 영속 볼륨을 사용합니다. `chart-worker`는 Oracle에 직접 접속하지 않고 DAC의 HTTP API를 호출합니다. DuckDB는 별도 `data-transform-service` Pod 안에서 실행합니다. Kafka 원본 토픽을 변환 서비스와 수신 검증 서비스가 서로 다른 consumer group으로 읽습니다. [스트리밍 흐름과 저장·재처리 계약](docs/streaming.md)을 참고하세요.
+Oracle과 PostgreSQL은 클러스터 밖의 Compose 컨테이너와 영속 볼륨을 사용합니다. `chart-worker`는 Oracle에 직접 접속하지 않고 Portal의 고정 소스 API 또는 기존 DAC/변환 결과 API를 호출합니다. 워크플로우 계산은 Portal의 DuckDB, 소스 Engine VS는 Analytics Engines의 DuckDB·Spark·DataFusion, 기존 스트림 변환은 별도 `data-transform-service`와 엔진 어댑터에서 실행합니다. Kafka 원본 토픽을 변환 서비스와 수신 검증 서비스가 서로 다른 consumer group으로 읽습니다. [스트리밍 흐름과 저장·재처리 계약](docs/streaming.md)을 참고하세요.
 
 **상세 다이어그램:** [배포·요청 시퀀스·ER 모델·오류 처리](docs/architecture.md). 다이어그램 원본은 [docs/diagrams](docs/diagrams)에 있습니다.
 
@@ -115,23 +116,27 @@ cd dac-duckdb
 
 ## 5분 데모
 
-1. **Overview**에서 Oracle·Chart·PostgreSQL 상태를 확인합니다.
-2. **Datasets**에서 EDS/결함을 조회하고 **API console**의 join/merge/filter 프리셋을 실행합니다.
-3. **Analysis**에서 EDS, 10만 행, Category=`lotId`, Legend=`product`, X=`inspectedAt`, Y=`yieldPct`를 적용합니다.
-4. 10개 카테고리가 별도 차트로 나뉘는지 확인하고 다음 페이지로 이동합니다.
-5. 포인트 크기를 바꿔 실행합니다. 데이터 재조회 없이 갱신되며 실제 표시 시간이 기록됩니다.
-6. 라벨 컬럼을 선택하고 PNG/SVG를 저장합니다. 뷰를 저장한 뒤 다시 열어 설정 복원을 확인합니다.
-7. **Data streams**에서 원본 규모와 주기를 정해 발행하고, 두 소비자의 수신 건수와 DuckDB 결과를 확인합니다. 완료된 결과는 `차트 열기`로 분석합니다.
-8. Analysis의 원본 소스를 `EDS 검사`, Category를 `선택 안 함`, 규모를 100만으로 지정해 한 차트에 전체 점을 그려 봅니다.
+현재 기본 흐름은 **API → 워크플로우 → 고정된 데이터 소스 → 분석 / Engine VS**입니다. 시연 전 서비스를 기동하고 예제 워크플로우를 한 번 실행해 두면 엔진 초기화 대기 시간을 줄일 수 있습니다.
 
-![한 차트에 100만 점과 실제 처리 시간](docs/images/million-points.png)
+| 시간 | 화면 | 시연할 내용 |
+| --- | --- | --- |
+| 0:00–1:00 | API console | `EDS_BY_LOT` 선택 → 기본 바디의 `lot_id` 확인 → 실행 → 응답과 요청 이력 확인. query_id가 조회 계약의 기준입니다. |
+| 1:00–2:00 | Workflows | 목록에서 예제 워크플로우를 만들고 이름을 지정합니다. Query → Join → Filter → Output을 확인하고 게시·실행합니다. 입력과 노드별 결과는 실행 기록 탭에서 확인합니다. |
+| 2:00–3:00 | Analysis | 성공한 워크플로우 실행의 **분석 소스로 사용**을 누릅니다. 결과 컬럼으로 Category·Legend를 선택하고 날짜 X축, 숫자 Y축, 포인트 크기·라벨을 보여줍니다. |
+| 3:00–4:00 | Saved views / Export | 분석 설정을 이름과 함께 명시적으로 저장하고 다시 엽니다. 같은 소스 ID를 사용하므로 원본을 재실행하지 않습니다. PNG 또는 HTML 내보내기도 확인합니다. |
+| 4:00–5:00 | Engine VS | 같은 소스로 집계를 실행해 DuckDB·Spark·DataFusion의 시간과 전체 결과 일치 여부를 비교합니다. Join/Merge에는 API 또는 다른 워크플로우를 입력 B로 선택할 수 있습니다. |
 
-**엔진 비교:** Analysis에서 `EDS × Defect`를 선택하면 변환 엔진을 고를 수 있습니다. 결과가 준비된 후 엔진을 바꾸면 동일 원본을 재분석합니다. Spark는 현재 물리 서버 한 대의 워커 컨테이너 두 개이며, 실제 여러 머신에 걸친 성능 향상을 측정한 구성은 아닙니다. [구조·저장 계약·검증 결과](docs/engines.md).
+실행 시간은 장비와 엔진 초기화 상태에 따라 달라집니다. [상세 시연 대본과 설계 질문](docs/portfolio-guide.md) · [소스 계약과 제한](docs/data-sources.md)
+
+**확장 데모:** Data streams의 Kafka 발행·독립 소비자와 기존 대용량 경로는 별도로 시연합니다. 새 워크플로우/API 소스의 최대 1만 행과 기존 합성 100만 행 실험을 구분합니다. Drill은 Engine VS 하단의 자체 SQL 콘솔 링크로 엽니다.
 
 ## 데이터 처리의 정확한 의미
 
 | 항목 | 실제 동작 |
 | --- | --- |
+| 워크플로우/API 소스 | 실행 결과·스키마·출처를 고정 저장. 최대 1만 행/8MB; DAC 개별 쿼리는 현재 최대 1천 행 |
+| `source=snapshot` | 고정 소스 ID로 차트·내보내기·저장 뷰 재사용 |
+| Engine VS | 동일 입력의 집계·필터·복합 키 Join·이름 기준 Merge를 세 엔진에서 실제 실행 |
 | DuckDB `join` | `lot_id + wafer_id` 복합 키의 inner/left/full 조인 |
 | DuckDB `merge` | 공통 스키마로 맞춘 `UNION ALL` 세로 결합. SQL upsert가 아님 |
 | DuckDB `filter` | 조인 결과에 최소 수율·심각도 AND 조건 적용 |
@@ -145,9 +150,11 @@ cd dac-duckdb
 | 기존 동기 API 한도 | 기본 데이터 호환 경로는 소스당 1천 행 경계에서 잘린 결과를 거부. Kafka benchmark 경로는 전체 입력을 계산 |
 | benchmark `joined` | 합성 테이블의 대응 필드 투영. 100만 행 DuckDB 조인 성능 주장이 아님 |
 
-워크플로우 엔진은 구현하지 않았습니다. [workflow-request.json](examples/workflow-request.json)과 요청 프리셋을 외부 워크플로우가 보낸 명세로 간주합니다.
+자체 워크플로우를 구현했습니다. [워크플로우 가이드](docs/workflows.md)에서 그래프 편집, 히스토리 바디 복사, API 연결, 게시 버전 실행과 현재 지원 범위를 확인할 수 있습니다.
 
 ## 측정된 성능
+
+아래는 **기존 대용량 직접 조회 경로**의 과거 측정이며, 새 워크플로우/API 소스의 성능 수치가 아닙니다.
 
 2026-11-13, 동일 머신의 headless Chromium/SwiftShader에서 각 조건을 한 번씩 측정한 값입니다. 장치·브라우저·포인트 크기·라벨 옵션에 따라 달라지며 SLA나 부하 테스트 결과가 아닙니다.
 
@@ -194,7 +201,9 @@ node scripts/streaming-browser.cjs
 node scripts/engines-browser.cjs
 ```
 
-현재 로컬 검증: **.NET 186개**, **프런트 유닛 28개**, **Kafka 통합 13항목·스트림 브라우저 9항목** 통과. 기존 경로 검증은 실제 데이터 검사 42항목, 시간 표시/옵션/대량 상호작용/단일 백만 점 브라우저 검사 21항목 통과. 상세 결과와 범위는 [전체 데이터 검증](docs/full-data-validation.md), [차트 시간 검증](docs/chart-timing.md)을 참고하세요. `artifacts/`는 실행 시 생성되며 Git에서 제외합니다. 통합 테스트는 실제 실행 이력을 추가하고, 뷰 생성 테스트는 자신이 만든 레코드를 정리합니다.
+2026-11-16 배포 작업 공간 검증: **.NET 236개 + 프런트 33개 + 엔진 Python 15개**, 워크플로우/API 소스 **실제 통합 14항목 + 브라우저 12항목** 통과. 세 실제 엔진의 집계·필터·Join·Merge 결과, 고정 소스 재사용, PNG 출력, 날짜 축, 모바일 화면과 비교 CSV를 검증했습니다. [현재 검증 범위](docs/evidence/source-validation.md).
+
+위 수치는 해당 날짜 배포 작업 공간의 검증 기록이며 GitHub CI 통과 표시가 아닙니다. 과거 대용량·Kafka 검증은 [전체 데이터 검증](docs/full-data-validation.md), [차트 시간 검증](docs/chart-timing.md)에 별도로 보관합니다. `artifacts/`는 실행 시 생성되고 Git에서 제외합니다.
 
 ## 소스 구조
 
@@ -208,8 +217,8 @@ src/
   Streaming.Core/   이벤트 계약 · 영속 수신 · Kafka 클라이언트
   Chart.Worker/     데이터 API 클라이언트 · 중립 차트 모델 · 그룹핑
   Chart.Renderer/   ECharts SSR · Sharp PNG · 독립 HTML
-  Portal.Api/       BFF · endpoint allowlist · PostgreSQL 저장
-  Portal.Web/       React 분석·스트림 UI · 웹 차트 · 렌더 시간 측정
+  Portal.Api/       BFF · 워크플로우 실행 · 소스 캡처 · 비교 큐 · PostgreSQL 저장
+  Portal.Web/       React API·워크플로우·분석·Engine VS UI · 웹 차트 · 렌더 시간 측정
 tests/             .NET 서비스별 유닛/API 테스트
 db/                초기 스키마 · 기본 샘플 · 100만 행 생성 SQL
 k8s/               kind · Deployment/Service · nginx 설정
@@ -225,6 +234,8 @@ docs/              설계 · 운영 · API · 측정 · 다이어그램
 - 페이지 누락·커서 역행·건수 불일치가 발생하면 부분 차트를 성공으로 반환하지 않습니다.
 - BFF는 허용된 내부 경로만 실행하며 요청 크기·동시 실행 수를 제한합니다.
 - 원본은 Oracle, 스트림 입력·상태·분석 설정은 PostgreSQL, 변환 결과는 Parquet PVC, 이벤트는 Kafka에 저장합니다.
-- 단일 노드/단일 브로커의 로컬 개발 환경입니다. Kafka 보존 기간은 7일이며 입력·결과의 자동 정리 정책은 아직 없습니다. 인증·테넌트 격리·고가용성·자동 백업·분산 추적·워크플로우 엔진·CUDA 가속은 구현 범위에 포함하지 않습니다.
+- 단일 노드/단일 브로커의 로컬 개발 환경입니다. Kafka 보존 기간은 7일이며 입력·결과의 자동 정리 정책은 아직 없습니다. 인증·테넌트 격리·고가용성·자동 백업·분산 추적·CUDA 가속은 구현 범위에 포함하지 않습니다.
 
 상세 근거와 확장 방향은 [설계 문서](docs/architecture.md)에 정리했습니다. 기존 ECharts 배포본의 라이선스는 [ECHARTS-LICENSE](src/Chart.Worker/wwwroot/vendor/ECHARTS-LICENSE)에 보존되어 있으며 각 의존성의 라이선스는 해당 패키지를 따릅니다.
+
+DAC stored-query console: see [request and history contracts](docs/dac-query-console.md).

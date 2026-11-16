@@ -1,0 +1,28 @@
+{
+  "passed": 14,
+  "checks": [
+    "API body creates immutable typed source with provenance",
+    "Shared source preserves dates and data schema",
+    "Invalid API bindings cannot become a source",
+    "Workflow Output becomes the same reusable dataset contract",
+    "Source remains usable after its workflow is deleted",
+    "Workflow dataset renders category/legend scatter with date X and labels",
+    "Saved view retains the exact source ID",
+    "PNG export reads the same captured workflow source",
+    "aggregate: real DuckDB/Spark/DataFusion share input hashes and agree on all result values",
+    "filter: real DuckDB/Spark/DataFusion share input hashes and agree on all result values",
+    "join: real DuckDB/Spark/DataFusion share input hashes and agree on all result values",
+    "merge: real DuckDB/Spark/DataFusion share input hashes and agree on all result values",
+    "Empty API source retains its schema",
+    "Source hash is stable across repeated reads"
+  ],
+  "apiSource": "8be46759-576d-41f2-9d4f-a918e392ec19",
+  "workflowSource": "a64a1992-9f7a-482e-a303-f6d180255fbd",
+  "defectSource": "f51d50f7-2bb1-4a0c-887f-c16f28d7bb68",
+  "comparisons": [
+    "e73f961a-9f28-40e5-a815-17051026795d",
+    "462e1382-e68a-423e-acae-8de43fdce6f2",
+    "567224cf-48af-416f-a980-22aba7a4bf1e",
+    "206d1f65-4b43-4ba7-a523-7fe0d8ce8ee9"
+  ]
+}

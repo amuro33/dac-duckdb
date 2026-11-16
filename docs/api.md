@@ -1,6 +1,6 @@
 # API 사용 가이드
 
-**분석 엔진 확장:** DuckDB·Spark·DataFusion·Drill 선택과 동일 원본 재분석을 지원합니다. 현재 구현·배포 경계는 [선택형 분석 엔진](engines.md)을 참고하세요.
+**현재 기본 흐름 (2026-11-16):** [DAC 저장 쿼리](dac-query-console.md) → [워크플로우](workflows.md) → [고정 데이터 소스·분석·Engine VS](data-sources.md)입니다. 아래 기존 직접 조회·Kafka 경로는 별도로 유지합니다. 소스 캡처, 버전 실행과 비교 API는 각 링크를 기준으로 사용하세요.
 
 Kafka 발행/상태/저장 결과 API와 `source=transformed` 계약은 [streaming.md](streaming.md)를 참고하세요. 기존 `/api/dac/transform`은 별도 변환 서비스로 전달하는 호환 경로입니다.
 

@@ -1,6 +1,6 @@
 # 시스템 설계와 데이터 흐름
 
-**분석 엔진 확장:** DuckDB·Spark·DataFusion·Drill 선택과 동일 원본 재분석을 지원합니다. 현재 구현·배포 경계는 [선택형 분석 엔진](engines.md)을 참고하세요.
+**현재 기본 흐름 (2026-11-16):** [DAC 저장 쿼리](dac-query-console.md) → [워크플로우](workflows.md) → [고정 데이터 소스·분석·Engine VS](data-sources.md)입니다. 아래 기존 직접 조회·Kafka 경로는 별도로 유지합니다. 소스 캡처, 버전 실행과 비교 API는 각 링크를 기준으로 사용하세요.
 
 **Kafka 확장 적용:** 원본 조회와 DuckDB 변환을 별도 Pod로 분리했습니다. 실제 행 발행·독립 소비자 그룹·영속 수신·Parquet 결과의 최신 구조는 [Kafka 스트리밍 설계](streaming.md)를 참고하세요. 아래 대용량 직접 조회 경로도 계속 지원합니다.
 
@@ -197,7 +197,7 @@ erDiagram
 
 ## Service boundaries
 
-The browser speaks only to the WaferScope BFF. Streaming control endpoints are allowlisted and routed to data-transform-service. Its API credentials and internal service addresses are never
+The browser speaks only to the API Content Builder BFF. Streaming control endpoints are allowlisted and routed to data-transform-service. Its API credentials and internal service addresses are never
 sent to the browser. The BFF forwards only registered DAC/chart endpoints; arbitrary upstream hosts, methods,
 and administration endpoints are rejected. Image exports have their own validated endpoint.
 
@@ -325,7 +325,7 @@ in the modular web bundle. The UI preserves draft/applied state semantics. Point
 2. 전체 데이터 의미를 유지하면서 바이너리 전송 또는 스트리밍 점진 표시를 검토합니다. 중간 실패와 최종 완전성 검증을 함께 설계해야 합니다.
 3. 사용자 인증·권한·테넌트와 저장 데이터의 소유권을 정의한 후 외부 서비스를 설계합니다.
 4. OpenTelemetry 추적, 요청 ID 전파, DB 마이그레이션, 이력 보존 정책, 백업 복구 검증을 추가합니다.
-5. 실제 워크플로우 서비스를 넣을 경우 현재 transform 요청 계약 위에 작업 상태·재시도·멱등성·취소를 설계합니다.
+5. 자체 워크플로우의 초안·게시 버전·실행 큐·취소·노드 결과는 구현되어 있습니다. 다음 확장은 자동 재시도 정책과 실행 요청 멱등성입니다.
 
 이 목록은 향후 작업이며 현재 구현된 기능으로 표시하지 않습니다.
 

@@ -1,0 +1,18 @@
+{
+  "passed": 12,
+  "checks": [
+    "Workflow Output deep link renders scatter with date X",
+    "Captured workflow retains point size and label controls",
+    "Analysis fits mobile viewport",
+    "UI executes three real engines and displays full-result equivalence",
+    "Comparison timings export as CSV",
+    "Comparison history survives reload",
+    "Numeric NULL filter executes without requiring a numeric value",
+    "Engine VS fits mobile viewport",
+    "API Console hands its selected query and body to Analysis",
+    "Published workflow executes from source picker and renders its captured Output",
+    "Analysis reload reuses the captured source identity",
+    "No browser runtime errors"
+  ],
+  "errors": []
+}

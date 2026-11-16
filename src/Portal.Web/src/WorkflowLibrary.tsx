@@ -161,7 +161,6 @@ export function WorkflowLibrary() {
     <div className="wf-page wf-library">
       <div className="wf-heading">
         <div>
-          <span className="wf-eyebrow">WORKFLOW LIBRARY</span>
           <h1>
             Workflows <span>저장하고, 관리하고, API로 실행하세요</span>
           </h1>

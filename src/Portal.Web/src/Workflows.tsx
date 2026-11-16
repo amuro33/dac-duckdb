@@ -472,7 +472,6 @@ export function WorkflowEditor({
     <div className="wf-page">
       <div className="wf-heading">
         <div>
-          <span className="wf-eyebrow">COMPOSE / EXECUTE / REUSE</span>
           <h1>
             Workflows <span>데이터를 연결하는 작업 공간</span>
           </h1>

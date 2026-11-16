@@ -1,5 +1,5 @@
 .wf-page {
-  --wf-accent: #4f46e5;
+  --wf-accent: var(--accent);
   min-width: 0;
 }
 .wf-heading {
@@ -81,10 +81,10 @@
 .wf-unsaved,
 .wf-saved {
   font-size: 11px;
-  color: #a16207;
+  color: var(--warn-fg);
 }
 .wf-saved {
-  color: #15803d;
+  color: var(--ok-fg);
 }
 .wf-message {
   display: flex;
@@ -132,7 +132,7 @@
   height: 580px;
   position: relative;
   min-width: 0;
-  background: #f8f9fc;
+  background: var(--surface-2);
 }
 .wf-palette {
   position: absolute;
@@ -144,7 +144,7 @@
   border: 1px solid var(--line);
   background: #fffffff0;
   border-radius: 8px;
-  box-shadow: 0 3px 12px #15255207;
+  box-shadow: 0 3px 12px rgba(15,23,42,.04);
 }
 .wf-palette button {
   padding: 0 7px;
@@ -163,14 +163,14 @@
   width: 218px;
   height: 148px;
   background: white;
-  border: 1px solid #dce1eb;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: 0 3px 10px #15255208;
+  box-shadow: 0 3px 10px rgba(15,23,42,.04);
   color: #273247;
 }
 .wf-node.selected {
-  border-color: #6366f1;
+  border-color: var(--focus);
   box-shadow: 0 0 0 3px #6366f116;
 }
 .wf-node-top {
@@ -185,8 +185,8 @@
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--accent);
+  background: var(--accent-soft);
   padding: 3px 6px;
   border-radius: 4px;
 }
@@ -207,11 +207,11 @@
   margin: 6px 0 0;
 }
 .wf-node.output .wf-node-top > span {
-  color: #047857;
+  color: var(--ok-fg);
   background: #ecfdf5;
 }
 .wf-node.filter .wf-node-top > span {
-  color: #a16207;
+  color: var(--warn-fg);
   background: #fefce8;
 }
 .wf-node .react-flow__handle {
@@ -224,23 +224,23 @@
   font: 10px var(--mono);
   margin: 12px -12px -12px;
   padding: 7px 12px;
-  border-top: 1px solid #eef0f5;
+  border-top: 1px solid var(--row-line);
   border-radius: 0 0 8px 8px;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--surface-2);
+  color: var(--muted);
 }
 .wf-state.succeeded {
   background: #f0fdf4;
-  color: #15803d;
+  color: var(--ok-fg);
 }
 .wf-state.failed,
 .wf-state.interrupted {
   background: #fef2f2;
-  color: #b91c1c;
+  color: var(--bad-fg);
 }
 .wf-state.running {
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .wf-inspector {
   border-left: 1px solid var(--line);
@@ -263,8 +263,8 @@
   border: 0;
 }
 .wf-tabs .active {
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .wf-inspector-body {
   padding: 12px;
@@ -304,7 +304,7 @@
 .wf-filter-rule select {
   width: 100%;
   min-width: 0;
-  border: 1px solid #dce1eb;
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   padding: 0 8px;
   background: white;
@@ -324,7 +324,7 @@
   line-height: 1.7;
 }
 .wf-invalid {
-  color: #b91c1c;
+  color: var(--bad-fg);
 }
 .wf-muted {
   color: #7b8598;
@@ -343,7 +343,7 @@
 .wf-binding-help {
   font-size: 11px;
   line-height: 1.7;
-  color: #64748b;
+  color: var(--muted);
   border-top: 1px solid var(--line);
   padding-top: 14px;
 }
@@ -352,8 +352,8 @@
   font: 10px/1.7 var(--mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: #f8fafc;
-  border: 1px solid #edf0f5;
+  background: var(--surface-2);
+  border: 1px solid var(--row-line);
   padding: 10px;
   border-radius: 6px;
 }
@@ -387,8 +387,8 @@
   display: block;
   font: 10px/1.8 var(--mono);
   overflow-wrap: anywhere;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
   padding: 12px;
   border-radius: 6px;
 }
@@ -494,7 +494,7 @@
   background: #ef4444;
 }
 .wf-status-dot.running {
-  background: #6366f1;
+  background: var(--focus);
 }
 .wf-result-heading {
   padding: 9px 0;
@@ -524,7 +524,7 @@
 .wf-result-table th {
   position: sticky;
   top: 0;
-  background: #f7f8fc;
+  background: var(--surface-2);
   font-weight: 500;
   text-align: left;
   padding: 6px 10px;
@@ -538,7 +538,7 @@
 }
 .wf-result-table td {
   padding: 5px 10px;
-  border-top: 1px solid #eef0f5;
+  border-top: 1px solid var(--row-line);
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -567,7 +567,7 @@
 }
 .wf-page .react-flow__controls button {
   background: white;
-  color: #475569;
+  color: var(--text-2);
   min-height: 26px;
   padding: 5px;
 }
@@ -731,7 +731,7 @@
 }
 .wf-library-table th {
   padding: 6px 12px;
-  background: #f8f9fc;
+  background: var(--surface-2);
   color: var(--muted);
   font-size: 11px;
   font-weight: 500;
@@ -744,7 +744,7 @@
   vertical-align: middle;
 }
 .wf-library-table tr:hover td {
-  background: #fcfcff;
+  background: var(--surface-2);
 }
 .wf-library .wf-name-link {
   border: 0;
@@ -758,7 +758,7 @@
   min-height: var(--control-height);
 }
 .wf-name-link svg {
-  color: #6366f1;
+  color: var(--focus);
   flex: none;
 }
 .wf-name-link strong {
@@ -790,14 +790,14 @@
   display: inline-block;
   padding: 5px 8px;
   border-radius: 5px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--fill);
+  color: var(--muted);
   font-size: 10px;
   white-space: nowrap;
 }
 .wf-publish-badge.published {
   background: #ecfdf5;
-  color: #047857;
+  color: var(--ok-fg);
 }
 .wf-row-actions {
   display: flex;
@@ -808,7 +808,7 @@
   max-width: 300px;
 }
 .wf-library .wf-delete {
-  color: #b91c1c;
+  color: var(--bad-fg);
 }
 .wf-library-note {
   color: var(--muted);
@@ -828,7 +828,7 @@
   color: #818cf8;
 }
 .wf-library-empty h3 {
-  color: var(--text);
+  color: var(--ink);
   font-size: 16px;
 }
 .wf-library-empty p {
@@ -842,9 +842,9 @@
   margin-top: 24px;
 }
 .wf-library .wf-delete-confirm {
-  background: #b91c1c;
+  background: var(--bad-fg);
   color: white;
-  border-color: #b91c1c;
+  border-color: var(--bad-fg);
 }
 .wf-field input {
   width: 100%;

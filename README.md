@@ -1,4 +1,4 @@
-# WaferScope · Multi-engine Data Workbench
+# API Content Builder
 
 **Oracle의 반도체 검사 데이터를 조회하고, DuckDB·Spark·DataFusion·Drill로 결합·필터링하고, 독립된 산점도로 탐색하는 통합 분석 애플리케이션입니다.**
 
@@ -6,11 +6,11 @@
 
 [분석 엔진 선택](docs/engines.md) · [Kafka 스트리밍](docs/streaming.md) · [시스템 설계](docs/architecture.md) · [실행·운영](docs/runbook.md) · [API 명세](docs/api.md) · [성능 측정](docs/chart-timing.md) · [데모 가이드](docs/portfolio-guide.md)
 
-![WaferScope 운영 개요](docs/images/overview.png)
+![API Content Builder — 저장 쿼리 선택, 요청 편집, 실행 결과와 이력](docs/images/api-content-builder.png)
 
 ## 해결하려는 문제
 
-검사 결과와 결함 이력이 서로 다른 API에 있을 때 분석자는 데이터를 내려받아 수동으로 합치고, 차트마다 축·그룹 조건을 다시 지정해야 합니다. WaferScope는 원본 조회, 변환, 시각화, 설정 저장, 재실행을 하나의 작업 공간에 연결합니다.
+검사 결과와 결함 이력이 서로 다른 API에 있을 때 분석자는 데이터를 내려받아 수동으로 합치고, 차트마다 축·그룹 조건을 다시 지정해야 합니다. API Content Builder는 원본 조회, 변환, 시각화, 설정 저장, 재실행을 하나의 작업 공간에 연결합니다.
 
 - **Category**로 고른 컬럼의 값마다 별도 DOM과 차트 인스턴스를 만듭니다.
 - **Legend**로 고른 컬럼의 값마다 각 차트 안에 독립 시리즈를 만듭니다.
